@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": "Product theme 1/frontend/dist",
   "cleanUrls": true,
   "rewrites": [
