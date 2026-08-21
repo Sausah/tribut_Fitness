@@ -412,7 +412,7 @@ export default function App() {
       {/* HEADER SECTION */}
       <header style={headerStyles}>
         {/* ROW 1: TOP UTILITY BAR (Symbols for Address, Get App, Order Tracking) */}
-        <div style={headerTopBarStyles}>
+        <div className="top-bar" style={headerTopBarStyles}>
           <div className="container" style={headerTopContainerStyles}>
             {/* Address Symbol & Text */}
             <div onClick={() => setIsAddressOpen(true)} style={headerUtilityItemStyles}>
@@ -445,8 +445,8 @@ export default function App() {
                 <span style={logoTextStyles}>PH</span>
               </div>
               <div style={brandDetailsStyles}>
-                <span style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
-                <span style={brandSloganStyles}>Believing Quality - Building Relationships</span>
+                <span className="brand-name" style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
+                <span className="brand-slogan" style={brandSloganStyles}>Believing Quality - Building Relationships</span>
               </div>
             </div>
 
@@ -1275,7 +1275,7 @@ export default function App() {
       {/* CART & CHECKOUT SLIDE-OUT DRAWER */}
       {isCartOpen && (
         <div style={drawerBackdropStyles} onClick={() => setIsCartOpen(false)}>
-          <div style={drawerPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
+          <div style={drawerPanelStyles} className="glass-panel responsive-drawer" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ShoppingCart style={{ color: 'var(--primary)' }} />
@@ -1398,7 +1398,7 @@ export default function App() {
                         Shipping Details
                       </h3>
 
-                      <div style={inputGroupRowStyles}>
+                      <div className="input-group-row" style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="text" 
@@ -1410,7 +1410,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div style={inputGroupRowStyles}>
+                      <div className="input-group-row" style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="email" 
@@ -1439,7 +1439,7 @@ export default function App() {
                         style={formErrors.address ? { ...checkoutInputStyles, border: '1px solid var(--primary)', marginBottom: '0.75rem' } : { ...checkoutInputStyles, marginBottom: '0.75rem' }}
                       />
 
-                      <div style={inputGroupRowStyles}>
+                      <div className="input-group-row" style={inputGroupRowStyles}>
                         <input 
                           type="text" 
                           placeholder="City" 
@@ -2141,6 +2141,8 @@ const radialGlowStyles = {
 };
 
 const heroImageStyles = {
+  maxWidth: '100%',
+  height: 'auto',
   maxHeight: '480px',
   objectFit: 'contain',
   filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6))'
@@ -2234,6 +2236,8 @@ const visualContainerStyles = {
 };
 
 const hotspotsImageStyles = {
+  maxWidth: '100%',
+  height: 'auto',
   maxHeight: '440px',
   objectFit: 'contain',
   filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))'
