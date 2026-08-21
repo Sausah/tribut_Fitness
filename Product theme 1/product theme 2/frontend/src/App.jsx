@@ -6,7 +6,7 @@ import {
   Smartphone, Truck
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5002/api';
 
 // Hardcoded fallback data in case the backend database isn't running yet
 const DEFAULT_PRODUCTS = [
@@ -50,6 +50,42 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHotspot, setActiveHotspot] = useState(null);
+  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+
+  const getThemeUrl = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        const currentPort = window.location.port;
+        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
+          return `http://localhost:5174/`;
+        }
+        return `http://localhost:${currentPort}/`;
+      }
+      return `http://localhost:${localPort}${themePath}`;
+    }
+    return themePath;
+  };
+
+  const isThemeActive = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
+      }
+      return window.location.port === String(localPort);
+    }
+    if (themePath === '/') {
+      return window.location.pathname === '/' || window.location.pathname === '';
+    }
+    return window.location.pathname.startsWith(themePath);
+  };
+  
+  // Admin Authentication State
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState('');
   
   // Checkout Form State
   const [formData, setFormData] = useState({
@@ -77,6 +113,14 @@ export default function App() {
   const [showMoreFaq, setShowMoreFaq] = useState(false);
   const [expertForm, setExpertForm] = useState({ name: '', email: '', question: '' });
   const [expertSuccess, setExpertSuccess] = useState(false);
+
+  useEffect(() => {
+    fetchProducts();
+    const path = window.location.pathname;
+    if (path.endsWith('/admin') || path.endsWith('/admin/')) {
+      setIsAdminLoginOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     fetchExpertQuestions();
@@ -161,36 +205,6 @@ export default function App() {
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [isAddressOpen, setIsAddressOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-
-  const getThemeUrl = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        const currentPort = window.location.port;
-        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
-          return `http://localhost:5174/`;
-        }
-        return `http://localhost:${currentPort}/`;
-      }
-      return `http://localhost:${localPort}${themePath}`;
-    }
-    return themePath;
-  };
-
-  const isThemeActive = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
-      }
-      return window.location.port === String(localPort);
-    }
-    if (themePath === '/') {
-      return window.location.pathname === '/' || window.location.pathname === '';
-    }
-    return window.location.pathname.startsWith(themePath);
-  };
   
   // Login State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -294,6 +308,34 @@ export default function App() {
       }
     } catch (e) {
       console.error('Failed to fetch admin dashboard metrics:', e);
+    }
+  };
+
+  const handleCloseAdminLogin = () => {
+    setIsAdminLoginOpen(false);
+    setAdminEmail('');
+    setAdminPassword('');
+    setAdminLoginError('');
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleCloseAdminDashboard = () => {
+    setIsAdminOpen(false);
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    setAdminLoginError('');
+    if (adminEmail === 'admin@tribufit.com' && adminPassword === 'admin123') {
+      setIsAdminOpen(true);
+      setIsAdminLoginOpen(false);
+      setAdminEmail('');
+      setAdminPassword('');
+    } else {
+      setAdminLoginError('Invalid email or password');
     }
   };
 
@@ -442,7 +484,7 @@ export default function App() {
       {/* HEADER SECTION */}
       <header style={headerStyles}>
         {/* ROW 1: TOP UTILITY BAR (Symbols for Address, Get App, Order Tracking) */}
-        <div className="top-bar" style={headerTopBarStyles}>
+        <div style={headerTopBarStyles}>
           <div className="container" style={headerTopContainerStyles}>
             {/* Address Symbol & Text */}
             <div onClick={() => setIsAddressOpen(true)} style={headerUtilityItemStyles}>
@@ -475,8 +517,8 @@ export default function App() {
                 <span style={logoTextStyles}>PH</span>
               </div>
               <div style={brandDetailsStyles}>
-                <span className="brand-name" style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
-                <span className="brand-slogan" style={brandSloganStyles}>Believing Quality - Building Relationships</span>
+                <span style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
+                <span style={brandSloganStyles}>Believing Quality - Building Relationships</span>
               </div>
             </div>
 
@@ -522,14 +564,14 @@ export default function App() {
       {/* HERO SECTION */}
       <section style={heroStyles}>
         <div style={heroOverlayStyles} />
-        <div className="container hero-container" style={heroContainerStyles}>
-          <div className="hero-text-col" style={heroTextColStyles}>
+        <div className="container" style={heroContainerStyles}>
+          <div style={heroTextColStyles}>
             <div style={badgeStyles}>
               <Sparkles size={14} style={{ color: 'var(--primary)' }} />
               <span>THE COGENT ENERGY BOOSTER</span>
             </div>
             
-            <h1 className="hero-title" style={heroTitleStyles}>
+            <h1 style={heroTitleStyles}>
               STEP UP TO A NEW LEVEL OF <span className="gradient-text">FITNESS!</span>
             </h1>
             
@@ -562,7 +604,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="hero-visual-col" style={heroVisualColStyles}>
+          <div style={heroVisualColStyles}>
             <div style={radialGlowStyles} />
             <img 
               src="assets/tribu-fit-bottle.png" 
@@ -585,7 +627,7 @@ export default function App() {
             <p style={sectionSubTitleStyles}>Hover or click on the hotspots to reveal the potency of Tribu-Fit's primary components.</p>
           </div>
 
-          <div className="hotspots-layout" style={hotspotsLayoutStyles}>
+          <div style={hotspotsLayoutStyles}>
             <div style={hotspotCardsColStyles}>
               <div style={activeHotspot === 'tribulus' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
                 <div style={featureHeaderStyles}>
@@ -1022,7 +1064,7 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="ask-expert-container" style={askExpertContainerStyles}>
+            <div style={askExpertContainerStyles}>
               <div style={expertQListStyles}>
                 {expertQuestions.map((eq, idx) => (
                   <div key={eq.id || idx} style={accordionItemStyles}>
@@ -1116,7 +1158,7 @@ export default function App() {
 
       {/* CONTACT & SUPPORT FORM */}
       <section id="contact" style={contactSectionStyles}>
-        <div className="container contact-container" style={contactContainerStyles}>
+        <div className="container" style={contactContainerStyles}>
           <div style={contactInfoColStyles}>
             <h2 style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>Need Guidance?</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
@@ -1305,7 +1347,7 @@ export default function App() {
       {/* CART & CHECKOUT SLIDE-OUT DRAWER */}
       {isCartOpen && (
         <div style={drawerBackdropStyles} onClick={() => setIsCartOpen(false)}>
-          <div style={drawerPanelStyles} className="glass-panel responsive-drawer" onClick={(e) => e.stopPropagation()}>
+          <div style={drawerPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ShoppingCart style={{ color: 'var(--primary)' }} />
@@ -1428,7 +1470,7 @@ export default function App() {
                         Shipping Details
                       </h3>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="text" 
@@ -1440,7 +1482,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="email" 
@@ -1469,7 +1511,7 @@ export default function App() {
                         style={formErrors.address ? { ...checkoutInputStyles, border: '1px solid var(--primary)', marginBottom: '0.75rem' } : { ...checkoutInputStyles, marginBottom: '0.75rem' }}
                       />
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <input 
                           type="text" 
                           placeholder="City" 
@@ -1505,9 +1547,75 @@ export default function App() {
         </div>
       )}
 
+      {/* ADMIN LOGIN GATE OVERLAY */}
+      {isAdminLoginOpen && (
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminLogin}>
+          <div style={adminLoginPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div style={drawerHeaderStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Shield style={{ color: 'var(--primary)' }} />
+                <h2 style={{ fontSize: '1.6rem' }}>Admin Gateway</h2>
+              </div>
+              <button onClick={handleCloseAdminLogin} style={closeDrawerBtnStyles}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem 0' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+                Please authenticate using your administrator email and password to access the operations dashboard.
+              </p>
+
+              {adminLoginError && (
+                <div style={{ color: 'var(--primary)', backgroundColor: 'rgba(230, 0, 35, 0.08)', border: '1.5px solid var(--primary)', padding: '10px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold' }}>⚠️ Error:</span> {adminLoginError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Admin Email
+                </label>
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@tribufit.com"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="submit" style={adminLoginSubmitBtnStyles}>
+                  Authenticate <ArrowRight size={16} />
+                </button>
+                <button type="button" onClick={handleCloseAdminLogin} style={adminLoginCancelBtnStyles}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ADMIN DASHBOARD OVERLAY */}
       {isAdminOpen && (
-        <div style={drawerBackdropStyles} onClick={() => setIsAdminOpen(false)}>
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminDashboard}>
           <div style={adminPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1518,7 +1626,7 @@ export default function App() {
                 <button onClick={fetchAdminData} style={refreshAdminBtnStyles}>
                   <RefreshCw size={14} /> Refresh Data
                 </button>
-                <button onClick={() => setIsAdminOpen(false)} style={closeDrawerBtnStyles}>
+                <button onClick={handleCloseAdminDashboard} style={closeDrawerBtnStyles}>
                   <X size={20} />
                 </button>
               </div>
@@ -2200,8 +2308,6 @@ const radialGlowStyles = {
 };
 
 const heroImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '480px',
   objectFit: 'contain',
   filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6))'
@@ -2295,8 +2401,6 @@ const visualContainerStyles = {
 };
 
 const hotspotsImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '440px',
   objectFit: 'contain',
   filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))'
@@ -2443,7 +2547,7 @@ const usageSectionStyles = {
 
 const usageLayoutStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
   gap: '40px'
 };
 
@@ -2597,7 +2701,7 @@ const purchaseSectionStyles = {
 
 const packsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
@@ -2716,7 +2820,7 @@ const reviewsSectionStyles = {
 
 const reviewsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
@@ -3311,6 +3415,48 @@ const returnToShopBtnStyles = {
   borderRadius: '10px',
   fontWeight: '600',
   cursor: 'pointer',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginPanelStyles = {
+  width: '90%',
+  maxWidth: '450px',
+  border: '1px solid var(--border-glass)',
+  margin: 'auto',
+  borderRadius: '16px',
+  backgroundColor: 'rgba(255, 255, 255, 0.98)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '2.5rem',
+  animation: 'fadeIn 0.3s ease-out'
+};
+
+const adminLoginSubmitBtnStyles = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: 'var(--primary)',
+  color: '#ffffff',
+  border: '2px solid var(--primary)',
+  fontWeight: '800',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  borderRadius: '10px',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginCancelBtnStyles = {
+  padding: '12px 24px',
+  backgroundColor: 'transparent',
+  color: 'var(--text-secondary)',
+  border: '2px solid var(--border-glass)',
+  fontWeight: '700',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  borderRadius: '10px',
   transition: 'var(--transition-smooth)'
 };
 

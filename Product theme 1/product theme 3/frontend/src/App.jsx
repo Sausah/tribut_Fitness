@@ -6,7 +6,7 @@ import {
   Smartphone, Truck
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5003/api';
 
 // Hardcoded fallback data in case the backend database isn't running yet
 const DEFAULT_PRODUCTS = [
@@ -50,6 +50,42 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHotspot, setActiveHotspot] = useState(null);
+  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+
+  const getThemeUrl = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        const currentPort = window.location.port;
+        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
+          return `http://localhost:5174/`;
+        }
+        return `http://localhost:${currentPort}/`;
+      }
+      return `http://localhost:${localPort}${themePath}`;
+    }
+    return themePath;
+  };
+
+  const isThemeActive = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
+      }
+      return window.location.port === String(localPort);
+    }
+    if (themePath === '/') {
+      return window.location.pathname === '/' || window.location.pathname === '';
+    }
+    return window.location.pathname.startsWith(themePath);
+  };
+  
+  // Admin Authentication State
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState('');
   
   // Checkout Form State
   const [formData, setFormData] = useState({
@@ -80,6 +116,10 @@ export default function App() {
 
   useEffect(() => {
     fetchExpertQuestions();
+    const path = window.location.pathname;
+    if (path.endsWith('/admin') || path.endsWith('/admin/')) {
+      setIsAdminLoginOpen(true);
+    }
   }, []);
 
   const fetchExpertQuestions = async () => {
@@ -161,36 +201,6 @@ export default function App() {
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [isAddressOpen, setIsAddressOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-
-  const getThemeUrl = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        const currentPort = window.location.port;
-        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
-          return `http://localhost:5174/`;
-        }
-        return `http://localhost:${currentPort}/`;
-      }
-      return `http://localhost:${localPort}${themePath}`;
-    }
-    return themePath;
-  };
-
-  const isThemeActive = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
-      }
-      return window.location.port === String(localPort);
-    }
-    if (themePath === '/') {
-      return window.location.pathname === '/' || window.location.pathname === '';
-    }
-    return window.location.pathname.startsWith(themePath);
-  };
   
   // Login State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -294,6 +304,34 @@ export default function App() {
       }
     } catch (e) {
       console.error('Failed to fetch admin dashboard metrics:', e);
+    }
+  };
+
+  const handleCloseAdminLogin = () => {
+    setIsAdminLoginOpen(false);
+    setAdminEmail('');
+    setAdminPassword('');
+    setAdminLoginError('');
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleCloseAdminDashboard = () => {
+    setIsAdminOpen(false);
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    setAdminLoginError('');
+    if (adminEmail === 'admin@tribufit.com' && adminPassword === 'admin123') {
+      setIsAdminOpen(true);
+      setIsAdminLoginOpen(false);
+      setAdminEmail('');
+      setAdminPassword('');
+    } else {
+      setAdminLoginError('Invalid email or password');
     }
   };
 
@@ -442,7 +480,7 @@ export default function App() {
       {/* HEADER SECTION */}
       <header style={headerStyles}>
         {/* ROW 1: TOP UTILITY BAR (Symbols for Address, Get App, Order Tracking) */}
-        <div className="top-bar" style={headerTopBarStyles}>
+        <div style={headerTopBarStyles}>
           <div className="container" style={headerTopContainerStyles}>
             {/* Address Symbol & Text */}
             <div onClick={() => setIsAddressOpen(true)} style={headerUtilityItemStyles}>
@@ -475,8 +513,8 @@ export default function App() {
                 <span style={logoTextStyles}>PH</span>
               </div>
               <div style={brandDetailsStyles}>
-                <span className="brand-name" style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
-                <span className="brand-slogan" style={brandSloganStyles}>Believing Quality - Building Relationships</span>
+                <span style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
+                <span style={brandSloganStyles}>Believing Quality - Building Relationships</span>
               </div>
             </div>
 
@@ -522,14 +560,27 @@ export default function App() {
       {/* HERO SECTION */}
       <section style={heroStyles}>
         <div style={heroOverlayStyles} />
-        <div className="container hero-container" style={heroContainerStyles}>
-          <div className="hero-text-col" style={heroTextColStyles}>
+        <div className="container" style={heroContainerStyles}>
+          <div style={heroVisualColStyles}>
+            <div style={radialGlowStyles} />
+            <img 
+              src="assets/tribu-fit-bottle.png" 
+              alt="Tribu-Fit Supplement Bottle" 
+              className="float-img"
+              style={heroImageStyles}
+              onError={(e) => {
+                e.target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&q=80&w=600';
+              }}
+            />
+          </div>
+
+          <div style={heroTextColStyles}>
             <div style={badgeStyles}>
               <Sparkles size={14} style={{ color: 'var(--primary)' }} />
               <span>THE COGENT ENERGY BOOSTER</span>
             </div>
             
-            <h1 className="hero-title" style={heroTitleStyles}>
+            <h1 style={heroTitleStyles}>
               STEP UP TO A NEW LEVEL OF <span className="gradient-text">FITNESS!</span>
             </h1>
             
@@ -561,19 +612,6 @@ export default function App() {
               </a>
             </div>
           </div>
-
-          <div className="hero-visual-col" style={heroVisualColStyles}>
-            <div style={radialGlowStyles} />
-            <img 
-              src="assets/tribu-fit-bottle.png" 
-              alt="Tribu-Fit Supplement Bottle" 
-              className="float-img"
-              style={heroImageStyles}
-              onError={(e) => {
-                e.target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&q=80&w=600';
-              }}
-            />
-          </div>
         </div>
       </section>
 
@@ -585,25 +623,7 @@ export default function App() {
             <p style={sectionSubTitleStyles}>Hover or click on the hotspots to reveal the potency of Tribu-Fit's primary components.</p>
           </div>
 
-          <div className="hotspots-layout" style={hotspotsLayoutStyles}>
-            <div style={hotspotCardsColStyles}>
-              <div style={activeHotspot === 'tribulus' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
-                <div style={featureHeaderStyles}>
-                  <div style={hotspotLabelStyles(1)}>01</div>
-                  <h3>Tribulus Terrestris</h3>
-                </div>
-                <p>Derived from high-purity puncture vine extracts, Tribulus acts as an organic catalyst for building muscle fibers, elevating free testosterone levels naturally, and sustaining physical energy levels throughout strenuous activities.</p>
-              </div>
-
-              <div style={activeHotspot === 'ashwagandha' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
-                <div style={featureHeaderStyles}>
-                  <div style={hotspotLabelStyles(2)}>02</div>
-                  <h3>Ashwagandha (Withania somnifera)</h3>
-                </div>
-                <p>A classic adaptogenic root trusted for centuries. Ashwagandha actively lowers cortisol levels, minimizes exercise-induced oxidative stress, improves restful sleep, and optimizes physical performance under fatigue.</p>
-              </div>
-            </div>
-
+          <div style={hotspotsLayoutStyles}>
             <div style={hotspotsVisualColStyles}>
               <div style={visualContainerStyles}>
                 <img 
@@ -638,6 +658,24 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <div style={hotspotCardsColStyles}>
+              <div style={activeHotspot === 'tribulus' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
+                <div style={featureHeaderStyles}>
+                  <div style={hotspotLabelStyles(1)}>01</div>
+                  <h3>Tribulus Terrestris</h3>
+                </div>
+                <p>Derived from high-purity puncture vine extracts, Tribulus acts as an organic catalyst for building muscle fibers, elevating free testosterone levels naturally, and sustaining physical energy levels throughout strenuous activities.</p>
+              </div>
+
+              <div style={activeHotspot === 'ashwagandha' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
+                <div style={featureHeaderStyles}>
+                  <div style={hotspotLabelStyles(2)}>02</div>
+                  <h3>Ashwagandha (Withania somnifera)</h3>
+                </div>
+                <p>A classic adaptogenic root trusted for centuries. Ashwagandha actively lowers cortisol levels, minimizes exercise-induced oxidative stress, improves restful sleep, and optimizes physical performance under fatigue.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -650,10 +688,10 @@ export default function App() {
             <p style={sectionSubTitleStyles}>Explore the athletic lifestyle of the Progressive Health Care fitness community.</p>
           </div>
 
-          <div style={galleryGridStyles}>
+          <div className="bento-grid">
             {/* Card 1: Gym Guy */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-gym-guy.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card bento-tall" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-gym-guy.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-gym-guy.jpg" alt="Join the Fitness Tribe" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -663,8 +701,8 @@ export default function App() {
             </div>
 
             {/* Card 2: Prize */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-prize.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-prize.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-prize.jpg" alt="Power On to the Prize" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -674,8 +712,8 @@ export default function App() {
             </div>
 
             {/* Card 3: Fitness Level */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-fitness.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-fitness.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-fitness.jpg" alt="Step up to Fitness" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -685,8 +723,8 @@ export default function App() {
             </div>
 
             {/* Card 4: Boxer */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-boxer.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card bento-tall" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-boxer.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-boxer.jpg" alt="Be a Hit with Tribu-Fit" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -1022,7 +1060,7 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="ask-expert-container" style={askExpertContainerStyles}>
+            <div style={askExpertContainerStyles}>
               <div style={expertQListStyles}>
                 {expertQuestions.map((eq, idx) => (
                   <div key={eq.id || idx} style={accordionItemStyles}>
@@ -1116,7 +1154,7 @@ export default function App() {
 
       {/* CONTACT & SUPPORT FORM */}
       <section id="contact" style={contactSectionStyles}>
-        <div className="container contact-container" style={contactContainerStyles}>
+        <div className="container" style={contactContainerStyles}>
           <div style={contactInfoColStyles}>
             <h2 style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>Need Guidance?</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
@@ -1305,7 +1343,7 @@ export default function App() {
       {/* CART & CHECKOUT SLIDE-OUT DRAWER */}
       {isCartOpen && (
         <div style={drawerBackdropStyles} onClick={() => setIsCartOpen(false)}>
-          <div style={drawerPanelStyles} className="glass-panel responsive-drawer" onClick={(e) => e.stopPropagation()}>
+          <div style={drawerPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ShoppingCart style={{ color: 'var(--primary)' }} />
@@ -1428,7 +1466,7 @@ export default function App() {
                         Shipping Details
                       </h3>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="text" 
@@ -1440,7 +1478,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="email" 
@@ -1469,7 +1507,7 @@ export default function App() {
                         style={formErrors.address ? { ...checkoutInputStyles, border: '1px solid var(--primary)', marginBottom: '0.75rem' } : { ...checkoutInputStyles, marginBottom: '0.75rem' }}
                       />
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <input 
                           type="text" 
                           placeholder="City" 
@@ -1505,9 +1543,75 @@ export default function App() {
         </div>
       )}
 
+      {/* ADMIN LOGIN GATE OVERLAY */}
+      {isAdminLoginOpen && (
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminLogin}>
+          <div style={adminLoginPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div style={drawerHeaderStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Shield style={{ color: 'var(--primary)' }} />
+                <h2 style={{ fontSize: '1.6rem' }}>Admin Gateway</h2>
+              </div>
+              <button onClick={handleCloseAdminLogin} style={closeDrawerBtnStyles}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem 0' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+                Please authenticate using your administrator email and password to access the operations dashboard.
+              </p>
+
+              {adminLoginError && (
+                <div style={{ color: 'var(--primary)', backgroundColor: 'rgba(230, 0, 35, 0.08)', border: '1.5px solid var(--primary)', padding: '10px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold' }}>⚠️ Error:</span> {adminLoginError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Admin Email
+                </label>
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@tribufit.com"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="submit" style={adminLoginSubmitBtnStyles}>
+                  Authenticate <ArrowRight size={16} />
+                </button>
+                <button type="button" onClick={handleCloseAdminLogin} style={adminLoginCancelBtnStyles}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ADMIN DASHBOARD OVERLAY */}
       {isAdminOpen && (
-        <div style={drawerBackdropStyles} onClick={() => setIsAdminOpen(false)}>
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminDashboard}>
           <div style={adminPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1518,7 +1622,7 @@ export default function App() {
                 <button onClick={fetchAdminData} style={refreshAdminBtnStyles}>
                   <RefreshCw size={14} /> Refresh Data
                 </button>
-                <button onClick={() => setIsAdminOpen(false)} style={closeDrawerBtnStyles}>
+                <button onClick={handleCloseAdminDashboard} style={closeDrawerBtnStyles}>
                   <X size={20} />
                 </button>
               </div>
@@ -1854,18 +1958,19 @@ const headerStyles = {
   position: 'sticky',
   top: 0,
   zIndex: 100,
-  backgroundColor: 'rgba(10, 11, 13, 0.85)',
+  backgroundColor: 'rgba(0, 0, 0, 0.95)',
   backdropFilter: 'blur(20px)',
-  borderBottom: '1px solid var(--border-glass)',
+  borderBottom: '2px solid var(--primary)',
   display: 'block',
   width: '100%'
 };
 
 const headerTopBarStyles = {
   borderBottom: '1px solid var(--border-glass)',
-  backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  backgroundColor: 'rgba(0, 0, 0, 0.98)',
   padding: '6px 0',
   fontSize: '0.8rem',
+  fontFamily: "'Share Tech Mono', monospace",
   color: 'var(--text-secondary)'
 };
 
@@ -1905,7 +2010,7 @@ const headerMainBarStyles = {
 const mobileUtilitiesContainerStyles = {
   display: 'none',
   width: '100%',
-  borderTop: '1px solid var(--border-glass)',
+  borderTop: '2px solid var(--border-glass)',
   paddingTop: '16px',
   marginTop: '16px',
   flexDirection: 'column',
@@ -1923,16 +2028,17 @@ const mobileUtilRowStyles = {
 
 const loginNavBtnStyles = {
   background: 'none',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--border-glass)',
   color: '#e2e8f0',
   padding: '6px 12px',
-  borderRadius: '8px',
+  borderRadius: '0px',
   cursor: 'pointer',
   fontSize: '0.9rem',
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  transition: 'var(--transition-smooth)'
+  transition: 'var(--transition-smooth)',
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 const loginBtnTextStyles = {
@@ -1943,7 +2049,10 @@ const smallModalPanelStyles = {
   width: '90%',
   maxWidth: '420px',
   margin: 'auto',
-  borderRadius: '24px',
+  borderRadius: '0px',
+  border: '2px solid var(--primary)',
+  boxShadow: '0 0 25px rgba(0, 240, 255, 0.25)',
+  backgroundColor: 'var(--bg-card)',
   display: 'flex',
   flexDirection: 'column',
   animation: 'fadeIn 0.3s ease-out',
@@ -1966,20 +2075,20 @@ const logoWrapperStyles = {
 const logoCircleStyles = {
   width: '44px',
   height: '44px',
-  borderRadius: '50%',
-  backgroundColor: 'var(--primary)',
+  borderRadius: '0px',
+  backgroundColor: 'var(--bg-main)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: '2px solid var(--secondary)',
+  border: '2px solid var(--primary)',
   boxShadow: '0 0 15px var(--primary-glow)'
 };
 
 const logoTextStyles = {
-  color: '#fff',
-  fontFamily: 'Outfit',
+  color: 'var(--primary)',
+  fontFamily: "'Share Tech Mono', monospace",
   fontWeight: '800',
-  fontSize: '1.1rem',
+  fontSize: '1.2rem',
   letterSpacing: '0.5px'
 };
 
@@ -1989,17 +2098,19 @@ const brandDetailsStyles = {
 };
 
 const brandNameStyles = {
-  fontFamily: 'Outfit',
+  fontFamily: "'Space Grotesk', sans-serif",
   fontWeight: '700',
   fontSize: '1.15rem',
   color: '#ffffff',
-  lineHeight: '1.2'
+  lineHeight: '1.2',
+  letterSpacing: '0.5px'
 };
 
 const brandSloganStyles = {
   fontSize: '0.65rem',
   color: '#a0aec0',
   textTransform: 'uppercase',
+  fontFamily: "'Share Tech Mono', monospace",
   letterSpacing: '0.5px'
 };
 
@@ -2014,10 +2125,10 @@ const navLinkStyles = {
 
 const adminNavBtnStyles = {
   background: 'none',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--border-glass)',
   color: '#e2e8f0',
   padding: '6px 12px',
-  borderRadius: '8px',
+  borderRadius: '0px',
   cursor: 'pointer',
   fontSize: '0.9rem',
   display: 'flex',
@@ -2046,25 +2157,27 @@ const cartBadgeStyles = {
   position: 'absolute',
   top: '-2px',
   right: '-2px',
-  backgroundColor: 'var(--primary)',
+  backgroundColor: 'var(--primary-hover)',
   color: '#fff',
   fontSize: '0.75rem',
+  fontFamily: "'Share Tech Mono', monospace",
   fontWeight: '700',
   minWidth: '18px',
   height: '18px',
-  borderRadius: '9px',
+  borderRadius: '0px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   padding: '0 4px',
-  border: '2px solid var(--bg-main)'
+  border: '1px solid var(--primary)'
 };
 
 /* HERO STYLES */
 const heroStyles = {
   position: 'relative',
-  padding: '100px 0 120px 0',
-  background: 'var(--gradient-dark)',
+  padding: '120px 0',
+  background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
+  borderBottom: '2px solid var(--border-glass)',
   overflow: 'hidden',
   display: 'flex',
   alignItems: 'center'
@@ -2076,13 +2189,13 @@ const heroOverlayStyles = {
   left: 0,
   width: '100%',
   height: '100%',
-  backgroundImage: 'radial-gradient(circle at 80% 30%, rgba(255, 59, 48, 0.08) 0%, rgba(0, 0, 0, 0) 60%)',
+  backgroundImage: 'radial-gradient(circle at 25% 40%, rgba(230, 0, 35, 0.08) 0%, rgba(255, 255, 255, 0) 65%)',
   pointerEvents: 'none'
 };
 
 const heroContainerStyles = {
   display: 'grid',
-  gridTemplateColumns: '1.2fr 0.8fr',
+  gridTemplateColumns: '0.8fr 1.2fr',
   gap: '60px',
   alignItems: 'center',
   position: 'relative',
@@ -2099,29 +2212,32 @@ const badgeStyles = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '8px',
-  backgroundColor: 'rgba(255, 59, 48, 0.1)',
-  border: '1px solid rgba(255, 59, 48, 0.2)',
+  backgroundColor: 'rgba(230, 0, 35, 0.08)',
+  border: '2px solid var(--primary)',
   padding: '6px 12px',
-  borderRadius: '30px',
+  borderRadius: '0px',
   fontSize: '0.8rem',
   fontWeight: '700',
+  fontFamily: "'Share Tech Mono', monospace",
   textTransform: 'uppercase',
-  letterSpacing: '1px',
-  color: 'var(--text-primary)',
-  marginBottom: '24px'
+  letterSpacing: '1.5px',
+  color: 'var(--primary)',
+  marginBottom: '24px',
+  boxShadow: '0 0 10px rgba(230, 0, 35, 0.15)'
 };
 
 const heroTitleStyles = {
-  fontSize: '3.8rem',
+  fontSize: '3.6rem',
   lineHeight: '1.1',
   marginBottom: '24px',
   textTransform: 'uppercase',
-  fontStyle: 'italic',
-  color: 'var(--text-title, #000000)'
+  fontFamily: "'Space Grotesk', sans-serif",
+  color: 'var(--text-title)',
+  letterSpacing: '-0.02em'
 };
 
 const heroSubStyles = {
-  fontSize: '1.15rem',
+  fontSize: '1.1rem',
   color: 'var(--text-secondary)',
   marginBottom: '32px',
   maxWidth: '600px',
@@ -2140,19 +2256,20 @@ const heroFeatureItemStyles = {
   alignItems: 'center',
   gap: '12px',
   fontSize: '1rem',
-  color: 'var(--text-primary)'
+  color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 const heroFeatureCheckStyles = {
-  width: '22px',
-  height: '22px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '1px solid var(--secondary)',
+  width: '20px',
+  height: '20px',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(230, 0, 35, 0.08)',
+  border: '1.5px solid var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--secondary)'
+  color: 'var(--primary)'
 };
 
 const heroCTAContainerStyles = {
@@ -2166,7 +2283,7 @@ const heroCTAButtonStyles = {
   alignItems: 'center',
   gap: '10px',
   padding: '14px 28px',
-  borderRadius: '12px',
+  borderRadius: '0px',
   fontSize: '1.05rem',
   textDecoration: 'none'
 };
@@ -2176,7 +2293,8 @@ const heroSecondaryCTAStyles = {
   textDecoration: 'none',
   fontSize: '1rem',
   fontWeight: '600',
-  borderBottom: '1px dashed var(--text-muted)',
+  fontFamily: "'Share Tech Mono', monospace",
+  borderBottom: '2px solid var(--border-glass)',
   paddingBottom: '2px',
   transition: 'var(--transition-smooth)'
 };
@@ -2189,10 +2307,10 @@ const heroVisualColStyles = {
 
 const radialGlowStyles = {
   position: 'absolute',
-  width: '400px',
-  height: '400px',
+  width: '450px',
+  height: '450px',
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(255, 59, 48, 0.12) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(0,0,0,0) 100%)',
+  background: 'radial-gradient(circle, rgba(230, 0, 35, 0.12) 0%, rgba(0, 0, 0, 0.05) 50%, rgba(255, 255, 255, 0) 100%)',
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
@@ -2200,19 +2318,17 @@ const radialGlowStyles = {
 };
 
 const heroImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '480px',
   objectFit: 'contain',
-  filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6))'
+  filter: 'drop-shadow(0 0 30px var(--primary-glow))'
 };
 
 /* INTERACTIVE HOTSPOTS SECTION */
 const hotspotsSectionStyles = {
   padding: '120px 0',
-  backgroundColor: 'var(--bg-card)',
-  borderTop: '1px solid var(--border-glass)',
-  borderBottom: '1px solid var(--border-glass)'
+  backgroundColor: 'var(--bg-main)',
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const sectionHeaderStyles = {
@@ -2221,9 +2337,10 @@ const sectionHeaderStyles = {
 };
 
 const sectionTitleStyles = {
-  fontSize: '2.5rem',
+  fontSize: '2.8rem',
   marginBottom: '16px',
-  color: 'var(--text-primary)'
+  color: 'var(--text-primary)',
+  letterSpacing: '-0.5px'
 };
 
 const sectionSubTitleStyles = {
@@ -2248,19 +2365,19 @@ const hotspotCardsColStyles = {
 
 const activeFeatureCardStyles = {
   padding: '30px',
-  borderRadius: '20px',
-  background: 'rgba(255, 59, 48, 0.05)',
-  border: '1.5px solid var(--primary)',
-  boxShadow: '0 10px 30px rgba(255, 59, 48, 0.1)',
+  borderRadius: '0px',
+  background: 'rgba(230, 0, 35, 0.04)',
+  border: '2px solid var(--primary)',
+  boxShadow: '3px 3px 0px var(--primary)',
   transition: 'var(--transition-smooth)'
 };
 
 const inactiveFeatureCardStyles = {
   padding: '30px',
-  borderRadius: '20px',
+  borderRadius: '0px',
   background: 'var(--bg-card)',
-  border: '1px solid var(--border-glass)',
-  opacity: '0.65',
+  border: '2px solid var(--border-glass)',
+  opacity: '0.5',
   transition: 'var(--transition-smooth)'
 };
 
@@ -2274,13 +2391,15 @@ const featureHeaderStyles = {
 const hotspotLabelStyles = (num) => ({
   width: '32px',
   height: '32px',
-  borderRadius: '50%',
-  backgroundColor: num === 1 ? 'var(--primary)' : 'var(--secondary)',
+  borderRadius: '0px',
+  backgroundColor: 'transparent',
+  border: `2px solid ${num === 1 ? 'var(--primary)' : 'var(--primary-hover)'}`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#fff',
+  color: num === 1 ? 'var(--primary)' : 'var(--primary-hover)',
   fontWeight: 'bold',
+  fontFamily: "'Share Tech Mono', monospace",
   fontSize: '0.9rem'
 });
 
@@ -2295,11 +2414,9 @@ const visualContainerStyles = {
 };
 
 const hotspotsImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '440px',
   objectFit: 'contain',
-  filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))'
+  filter: 'drop-shadow(0 0 25px var(--primary-glow))'
 };
 
 const hotspotTriggerStyles = (top, left) => ({
@@ -2320,20 +2437,21 @@ const hotspotPulseStyles = (isRed) => ({
   position: 'absolute',
   width: '100%',
   height: '100%',
-  borderRadius: '50%',
+  borderRadius: '0px',
   animation: isRed ? 'pulseGlow 2s infinite' : 'pulseGreenGlow 2s infinite',
-  backgroundColor: isRed ? 'rgba(255, 59, 48, 0.4)' : 'rgba(16, 185, 129, 0.4)'
+  backgroundColor: isRed ? 'rgba(230, 0, 35, 0.3)' : 'rgba(0, 0, 0, 0.3)'
 });
 
 const hotspotDotStyles = (isRed) => ({
   position: 'relative',
   width: '24px',
   height: '24px',
-  borderRadius: '50%',
-  backgroundColor: isRed ? 'var(--primary)' : 'var(--secondary)',
-  border: '2px solid #fff',
+  borderRadius: '0px',
+  backgroundColor: isRed ? 'var(--primary)' : 'var(--primary-hover)',
+  border: '1.5px solid #fff',
   color: '#fff',
   fontSize: '0.75rem',
+  fontFamily: "'Share Tech Mono', monospace",
   fontWeight: 'bold',
   display: 'flex',
   alignItems: 'center',
@@ -2345,8 +2463,8 @@ const hotspotDotStyles = (isRed) => ({
 const gallerySectionStyles = {
   padding: '120px 0',
   backgroundColor: 'var(--bg-main)',
-  borderTop: '1px solid var(--border-glass)',
-  borderBottom: '1px solid var(--border-glass)'
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const galleryGridStyles = {
@@ -2357,17 +2475,25 @@ const galleryGridStyles = {
 };
 
 const galleryCardStyles = {
-  borderRadius: '24px',
+  borderRadius: '0px',
   overflow: 'hidden',
   cursor: 'pointer',
+  border: '2px solid var(--border-glass)',
   transition: 'var(--transition-smooth)',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
+  boxShadow: '3px 3px 0px var(--border-glass)'
 };
 
 const galleryImageWrapperStyles = {
   position: 'relative',
   width: '100%',
   paddingBottom: '100%', // 1:1 Aspect Ratio
+  overflow: 'hidden'
+};
+
+const bentoImageWrapperStyles = {
+  position: 'relative',
+  width: '100%',
+  height: '100%',
   overflow: 'hidden'
 };
 
@@ -2387,7 +2513,7 @@ const galleryOverlayHoverStyles = {
   left: 0,
   width: '100%',
   height: '100%',
-  backgroundColor: 'rgba(249, 115, 22, 0.85)', // Saffron translucent overlay
+  backgroundColor: 'rgba(0, 0, 0, 0.85)', /* Translucent black overlay */
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -2398,10 +2524,10 @@ const galleryOverlayHoverStyles = {
 };
 
 const galleryOverlayTextStyles = {
-  color: '#fff',
+  color: '#ffffff',
   fontWeight: 'bold',
   fontSize: '1rem',
-  fontFamily: 'Outfit'
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 /* LIGHTBOX MODAL STYLES */
@@ -2428,8 +2554,9 @@ const lightboxCloseBtnStyles = {
 const lightboxImgStyles = {
   maxWidth: '100%',
   maxHeight: '80vh',
-  borderRadius: '16px',
-  boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+  borderRadius: '0px',
+  border: '2px solid var(--primary)',
+  boxShadow: '0 0 30px var(--primary-glow)',
   objectFit: 'contain'
 };
 
@@ -2437,19 +2564,21 @@ const lightboxImgStyles = {
 const usageSectionStyles = {
   padding: '120px 0',
   backgroundColor: 'var(--bg-main)',
-  borderTop: '1px solid var(--border-glass)',
-  borderBottom: '1px solid var(--border-glass)'
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const usageLayoutStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
   gap: '40px'
 };
 
 const usageColStyles = {
   padding: '40px',
-  borderRadius: '24px',
+  borderRadius: '0px',
+  border: '2px solid var(--border-glass)',
+  backgroundColor: 'var(--bg-card)',
   display: 'flex',
   flexDirection: 'column',
   gap: '24px'
@@ -2488,11 +2617,12 @@ const stepItemStyles = {
 const stepNumberStyles = {
   width: '32px',
   height: '32px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(249, 115, 22, 0.1)',
-  border: '1px solid var(--primary)',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(230, 0, 35, 0.08)',
+  border: '1.5px solid var(--primary)',
   color: 'var(--primary)',
   fontWeight: 'bold',
+  fontFamily: "'Share Tech Mono', monospace",
   fontSize: '0.95rem',
   display: 'flex',
   alignItems: 'center',
@@ -2503,11 +2633,12 @@ const stepNumberStyles = {
 const stepNumberGreenStyles = {
   width: '32px',
   height: '32px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(22, 163, 74, 0.1)',
-  border: '1px solid var(--secondary)',
-  color: 'var(--secondary)',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  border: '1.5px solid var(--primary-hover)',
+  color: 'var(--primary-hover)',
   fontWeight: 'bold',
+  fontFamily: "'Share Tech Mono', monospace",
   fontSize: '0.95rem',
   display: 'flex',
   alignItems: 'center',
@@ -2517,8 +2648,8 @@ const stepNumberGreenStyles = {
 
 const safetyNoticeStyles = {
   padding: '16px',
-  borderRadius: '12px',
-  backgroundColor: 'rgba(249, 115, 22, 0.05)',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(230, 0, 35, 0.04)',
   borderLeft: '4px solid var(--primary)',
   fontSize: '0.85rem',
   color: 'var(--text-secondary)',
@@ -2528,7 +2659,8 @@ const safetyNoticeStyles = {
 /* BENEFITS SECTION */
 const benefitsSectionStyles = {
   padding: '120px 0',
-  background: 'var(--gradient-dark)'
+  background: 'var(--gradient-dark)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const benefitsGridStyles = {
@@ -2540,6 +2672,9 @@ const benefitsGridStyles = {
 
 const benefitCardStyles = {
   padding: '40px 30px',
+  borderRadius: '0px',
+  border: '2px solid var(--border-glass)',
+  backgroundColor: 'var(--bg-card)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
@@ -2548,26 +2683,26 @@ const benefitCardStyles = {
 };
 
 const benefitIconStyles = (color) => {
-  let bg = 'rgba(255, 59, 48, 0.1)';
-  let border = 'rgba(255, 59, 48, 0.2)';
+  let bg = 'rgba(0, 240, 255, 0.1)';
+  let border = 'rgba(0, 240, 255, 0.2)';
   let c = 'var(--primary)';
   
   if (color === 'green') {
-    bg = 'rgba(16, 185, 129, 0.1)';
-    border = 'rgba(16, 185, 129, 0.2)';
-    c = 'var(--secondary)';
+    bg = 'rgba(255, 0, 127, 0.1)';
+    border = 'rgba(255, 0, 127, 0.2)';
+    c = 'var(--primary-hover)';
   } else if (color === 'gold') {
-    bg = 'rgba(245, 158, 11, 0.1)';
-    border = 'rgba(245, 158, 11, 0.2)';
+    bg = 'rgba(255, 234, 0, 0.1)';
+    border = 'rgba(255, 234, 0, 0.2)';
     c = 'var(--gold)';
   }
-
+  
   return {
     width: '54px',
     height: '54px',
-    borderRadius: '16px',
+    borderRadius: '0px',
     backgroundColor: bg,
-    border: `1px solid ${border}`,
+    border: `1.5px solid ${border}`,
     color: c,
     display: 'flex',
     alignItems: 'center',
@@ -2579,7 +2714,8 @@ const benefitIconStyles = (color) => {
 const benefitTitleStyles = {
   fontSize: '1.3rem',
   marginBottom: '12px',
-  color: 'var(--text-primary)'
+  color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 const benefitTextStyles = {
@@ -2591,40 +2727,43 @@ const benefitTextStyles = {
 /* PRICING & TIERED PACKS */
 const purchaseSectionStyles = {
   padding: '120px 0',
-  backgroundColor: '#0a0b0d',
-  borderTop: '1px solid var(--border-glass)'
+  backgroundColor: 'var(--bg-main)',
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const packsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
 
 const packCardStyles = {
   padding: '50px 35px',
-  borderRadius: '24px',
+  borderRadius: '0px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   position: 'relative',
   textAlign: 'center',
   transition: 'var(--transition-smooth)',
-  background: 'linear-gradient(135deg, #111e38 0%, #0b1329 100%)',
-  border: '1px solid rgba(255, 255, 255, 0.15)'
+  background: 'linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%)',
+  border: '2px solid var(--border-glass)',
+  boxShadow: '4px 4px 0px var(--secondary)'
 };
 
 const savingsBadgeStyles = {
   position: 'absolute',
   top: '20px',
   right: '20px',
-  backgroundColor: 'var(--primary)',
+  backgroundColor: 'var(--primary-hover)',
   color: '#fff',
   fontSize: '0.75rem',
-  fontWeight: '700',
+  fontFamily: "'Share Tech Mono', monospace",
+  fontWeight: '750',
   padding: '6px 14px',
-  borderRadius: '30px',
+  borderRadius: '0px',
   textTransform: 'uppercase',
   letterSpacing: '0.5px'
 };
@@ -2632,13 +2771,15 @@ const savingsBadgeStyles = {
 const packTitleStyles = {
   fontSize: '1.5rem',
   marginBottom: '8px',
-  color: '#fff'
+  color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 const packTaglineStyles = {
   color: 'var(--primary)',
   fontWeight: '600',
   fontSize: '0.85rem',
+  fontFamily: "'Share Tech Mono', monospace",
   textTransform: 'uppercase',
   letterSpacing: '1px',
   marginBottom: '24px'
@@ -2653,7 +2794,8 @@ const packPriceWrapperStyles = {
 const packCurrencyStyles = {
   fontSize: '1.5rem',
   fontWeight: '600',
-  color: '#fff',
+  color: 'var(--text-primary)',
+  fontFamily: "'Share Tech Mono', monospace",
   marginTop: '6px',
   marginRight: '2px'
 };
@@ -2661,12 +2803,13 @@ const packCurrencyStyles = {
 const packAmountStyles = {
   fontSize: '3.5rem',
   fontWeight: '800',
-  color: '#fff',
+  color: 'var(--text-primary)',
+  fontFamily: "'Share Tech Mono', monospace",
   lineHeight: '1'
 };
 
 const packDescStyles = {
-  color: '#e2e8f0',
+  color: 'var(--text-secondary)',
   fontSize: '0.95rem',
   lineHeight: '1.6',
   marginBottom: '24px',
@@ -2678,18 +2821,20 @@ const packStockStyles = {
   alignItems: 'center',
   gap: '6px',
   fontSize: '0.8rem',
-  color: '#a0aec0',
+  color: 'var(--text-muted)',
+  fontFamily: "'Share Tech Mono', monospace",
   marginBottom: '24px'
 };
 
 const packBuyBtnStyles = {
   width: '100%',
   padding: '14px',
-  borderRadius: '12px',
-  border: '1px solid var(--border-glass)',
-  backgroundColor: 'var(--bg-glass)',
-  color: '#000000',
-  fontWeight: '600',
+  borderRadius: '0px',
+  border: '2px solid var(--primary)',
+  backgroundColor: 'transparent',
+  color: 'var(--primary)',
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: '800',
   fontSize: '1rem',
   cursor: 'pointer',
   display: 'flex',
@@ -2702,28 +2847,30 @@ const packBuyBtnStyles = {
 const packBuyBtnActiveStyles = {
   ...packBuyBtnStyles,
   backgroundColor: 'var(--primary)',
-  border: 'none',
-  boxShadow: '0 4px 15px var(--primary-glow)'
+  color: '#ffffff',
+  boxShadow: '0 0 15px var(--primary-glow)'
 };
 
 /* REVIEWS / TESTIMONIALS SECTION STYLES */
 const reviewsSectionStyles = {
   padding: '120px 0',
   backgroundColor: 'var(--bg-main)',
-  borderTop: '1px solid var(--border-glass)',
-  borderBottom: '1px solid var(--border-glass)'
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const reviewsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
 
 const reviewCardStyles = {
   padding: '40px 30px',
-  borderRadius: '24px',
+  borderRadius: '0px',
+  border: '2px solid var(--border-glass)',
+  backgroundColor: 'var(--bg-card)',
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'space-between',
@@ -2743,12 +2890,13 @@ const verifiedBadgeStyles = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '4px',
-  backgroundColor: 'rgba(22, 163, 74, 0.1)',
-  border: '1px solid var(--secondary)',
-  color: 'var(--secondary)',
+  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  border: '1.5px solid var(--primary-hover)',
+  color: 'var(--primary-hover)',
   padding: '4px 10px',
-  borderRadius: '20px',
+  borderRadius: '0px',
   fontSize: '0.75rem',
+  fontFamily: "'Share Tech Mono', monospace",
   fontWeight: '700',
   textTransform: 'uppercase',
   letterSpacing: '0.5px'
@@ -2773,7 +2921,7 @@ const reviewAuthorStyles = {
 const authorAvatarStyles = (bg, border) => ({
   width: '46px',
   height: '46px',
-  borderRadius: '50%',
+  borderRadius: '0px',
   backgroundColor: bg,
   border: `1.5px solid ${border}`,
   color: border,
@@ -2789,6 +2937,7 @@ const authorNameStyles = {
   fontSize: '1.05rem',
   fontWeight: '700',
   color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif",
   margin: '0 0 2px 0'
 };
 
@@ -2800,8 +2949,8 @@ const authorTitleStyles = {
 /* CONTACT SECTION */
 const contactSectionStyles = {
   padding: '120px 0',
-  background: 'var(--gradient-dark)',
-  borderTop: '1px solid var(--border-glass)'
+  background: 'var(--bg-main)',
+  borderTop: '2px solid var(--border-glass)'
 };
 
 const contactContainerStyles = {
@@ -2831,9 +2980,9 @@ const contactListItemStyles = {
 const contactIconWrapperStyles = {
   width: '46px',
   height: '46px',
-  borderRadius: '12px',
+  borderRadius: '0px',
   backgroundColor: 'var(--bg-glass)',
-  border: '1px solid var(--border-glass)',
+  border: '1.5px solid var(--border-glass)',
   color: 'var(--primary)',
   display: 'flex',
   alignItems: 'center',
@@ -2842,7 +2991,10 @@ const contactIconWrapperStyles = {
 
 const contactFormColStyles = {
   padding: '40px',
-  borderRadius: '24px'
+  borderRadius: '0px',
+  border: '2px solid var(--border-glass)',
+  backgroundColor: 'var(--bg-card)',
+  boxShadow: '3px 3px 0px var(--border-glass)'
 };
 
 const formElementStyles = {
@@ -2860,14 +3012,15 @@ const inputGroupStyles = {
 const labelStyles = {
   fontSize: '0.85rem',
   color: 'var(--text-secondary)',
-  fontWeight: '600'
+  fontWeight: '600',
+  fontFamily: "'Space Grotesk', sans-serif"
 };
 
 const inputStyles = {
   padding: '12px 16px',
-  borderRadius: '10px',
-  backgroundColor: '#f1f5f9',
-  border: '1px solid var(--border-glass)',
+  borderRadius: '0px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1.5px solid var(--border-glass)',
   color: 'var(--text-primary)',
   fontSize: '0.95rem',
   outline: 'none',
@@ -2876,7 +3029,7 @@ const inputStyles = {
 
 const contactSubmitBtnStyles = {
   padding: '14px',
-  borderRadius: '12px',
+  borderRadius: '0px',
   fontSize: '1rem',
   marginTop: '10px'
 };
@@ -2892,10 +3045,10 @@ const contactSuccessWrapperStyles = {
 const checkCircleWrapperStyles = {
   width: '70px',
   height: '70px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '2.5px solid var(--secondary)',
-  color: 'var(--secondary)',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(230, 0, 35, 0.08)',
+  border: '2px solid var(--primary)',
+  color: 'var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -2905,18 +3058,18 @@ const checkCircleWrapperStyles = {
 const resetContactBtnStyles = {
   marginTop: '20px',
   background: 'none',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--border-glass)',
   color: 'var(--text-secondary)',
   padding: '8px 16px',
-  borderRadius: '8px',
+  borderRadius: '0px',
   cursor: 'pointer',
   transition: 'var(--transition-smooth)'
 };
 
 /* FOOTER STYLES */
 const footerStyles = {
-  backgroundColor: '#07080a',
-  borderTop: '1px solid var(--border-glass)',
+  backgroundColor: '#010102',
+  borderTop: '2px solid var(--primary)',
   padding: '80px 0 0 0',
   marginTop: 'auto'
 };
@@ -2958,7 +3111,7 @@ const footerContactItemStyles = {
 };
 
 const footerColHeadingStyles = {
-  fontFamily: 'Outfit',
+  fontFamily: "'Space Grotesk', sans-serif",
   fontWeight: '700',
   fontSize: '1rem',
   color: '#ffffff',
@@ -3001,7 +3154,7 @@ const footerSocialLinkStyles = {
   border: '1px solid rgba(255,255,255,0.08)',
   width: '40px',
   height: '40px',
-  borderRadius: '50%',
+  borderRadius: '0px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -3047,7 +3200,7 @@ const footerPlatformItemStyles = {
   textTransform: 'lowercase',
   backgroundColor: 'rgba(255,255,255,0.05)',
   padding: '6px 12px',
-  borderRadius: '6px',
+  borderRadius: '0px',
   border: '1px solid rgba(255,255,255,0.08)'
 };
 
@@ -3064,7 +3217,7 @@ const footerPaymentItemStyles = {
   color: '#e2e8f0',
   backgroundColor: 'rgba(255,255,255,0.05)',
   padding: '4px 10px',
-  borderRadius: '4px',
+  borderRadius: '0px',
   border: '1px solid rgba(255,255,255,0.08)'
 };
 
@@ -3085,7 +3238,7 @@ const footerPolicyLinkStyles = {
 };
 
 const footerCopyrightBarStyles = {
-  backgroundColor: '#052e16',
+  backgroundColor: '#000000',
   padding: '16px 0',
   marginTop: '20px'
 };
@@ -3093,7 +3246,7 @@ const footerCopyrightBarStyles = {
 const footerCopyrightContainerStyles = {
   textAlign: 'center',
   fontSize: '0.8rem',
-  color: '#a7f3d0'
+  color: '#a3a3c2'
 };
 
 /* DRAWER / GLASS OVERLAY */
@@ -3103,18 +3256,19 @@ const drawerBackdropStyles = {
   left: 0,
   width: '100vw',
   height: '100vh',
-  backgroundColor: 'rgba(0,0,0,0.7)',
+  backgroundColor: 'rgba(0,0,0,0.85)',
   zIndex: 1000,
   display: 'flex',
   justifyContent: 'flex-end',
-  backdropFilter: 'blur(5px)'
+  backdropFilter: 'blur(10px)'
 };
 
 const drawerPanelStyles = {
   width: '500px',
   height: '100%',
-  borderLeft: '1px solid var(--border-glass)',
+  borderLeft: '2px solid var(--primary)',
   borderRadius: '0px',
+  backgroundColor: 'rgba(255, 255, 255, 0.98)',
   display: 'flex',
   flexDirection: 'column',
   animation: 'slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -3122,7 +3276,7 @@ const drawerPanelStyles = {
 
 const drawerHeaderStyles = {
   padding: '24px',
-  borderBottom: '1px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center'
@@ -3158,11 +3312,12 @@ const explorePacksBtnStyles = {
   display: 'inline-block',
   marginTop: '16px',
   backgroundColor: 'var(--primary)',
-  color: '#fff',
+  color: '#000000',
   textDecoration: 'none',
   padding: '10px 20px',
-  borderRadius: '8px',
-  fontWeight: '600',
+  borderRadius: '0px',
+  fontWeight: '700',
+  fontFamily: "'Space Grotesk', sans-serif",
   fontSize: '0.9rem'
 };
 
@@ -3177,9 +3332,9 @@ const cartItemRowStyles = {
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '16px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '12px'
+  backgroundColor: 'rgba(230, 0, 35, 0.02)',
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px'
 };
 
 const cartItemInfoStyles = {
@@ -3195,7 +3350,7 @@ const cartQtyControllerStyles = {
   gap: '10px',
   backgroundColor: 'rgba(255,255,255,0.05)',
   padding: '4px 8px',
-  borderRadius: '8px',
+  borderRadius: '0px',
   margin: '0 16px'
 };
 
@@ -3223,9 +3378,9 @@ const costSummaryStyles = {
   flexDirection: 'column',
   gap: '10px',
   padding: '20px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
-  borderRadius: '16px',
-  border: '1px solid var(--border-glass)'
+  backgroundColor: 'var(--bg-card)',
+  borderRadius: '0px',
+  border: '2px solid var(--border-glass)'
 };
 
 const costRowStyles = {
@@ -3256,7 +3411,7 @@ const checkoutInputStyles = {
 const placeOrderBtnStyles = {
   width: '100%',
   padding: '14px',
-  borderRadius: '12px',
+  borderRadius: '0px',
   fontSize: '1rem',
   marginTop: '16px'
 };
@@ -3273,22 +3428,22 @@ const checkoutSuccessWrapperStyles = {
 const checkoutSuccessCircleStyles = {
   width: '80px',
   height: '80px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '3px solid var(--secondary)',
-  color: 'var(--secondary)',
+  borderRadius: '0px',
+  backgroundColor: 'rgba(0, 240, 255, 0.1)',
+  border: '2px solid var(--primary)',
+  color: 'var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   marginBottom: '24px',
-  boxShadow: '0 0 20px var(--secondary-glow)'
+  boxShadow: '0 0 20px var(--primary-glow)'
 };
 
 const receiptStyles = {
   width: '100%',
-  backgroundColor: '#f8fafc',
-  border: '1px dashed var(--border-glass)',
-  borderRadius: '12px',
+  backgroundColor: 'var(--bg-card)',
+  border: '2px dashed var(--border-glass)',
+  borderRadius: '0px',
   padding: '20px',
   display: 'flex',
   flexDirection: 'column',
@@ -3306,11 +3461,54 @@ const receiptRowStyles = {
 const returnToShopBtnStyles = {
   backgroundColor: 'var(--primary)',
   border: 'none',
-  color: '#fff',
+  color: '#000000',
   padding: '12px 24px',
-  borderRadius: '10px',
-  fontWeight: '600',
+  borderRadius: '0px',
+  fontWeight: '700',
+  fontFamily: "'Space Grotesk', sans-serif",
   cursor: 'pointer',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginPanelStyles = {
+  width: '90%',
+  maxWidth: '450px',
+  border: '2px solid var(--primary)',
+  margin: 'auto',
+  borderRadius: '0px',
+  backgroundColor: 'var(--bg-main)',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '2.5rem',
+  animation: 'fadeIn 0.3s ease-out'
+};
+
+const adminLoginSubmitBtnStyles = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: 'var(--primary)',
+  color: '#ffffff',
+  border: '2px solid var(--primary)',
+  fontWeight: '800',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  borderRadius: '0px',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginCancelBtnStyles = {
+  padding: '12px 24px',
+  backgroundColor: 'transparent',
+  color: 'var(--text-secondary)',
+  border: '2px solid var(--border-glass)',
+  fontWeight: '700',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  borderRadius: '0px',
   transition: 'var(--transition-smooth)'
 };
 
@@ -3319,9 +3517,10 @@ const adminPanelStyles = {
   width: '90%',
   maxWidth: '1200px',
   height: '90%',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--primary)',
   margin: 'auto',
-  borderRadius: '24px',
+  borderRadius: '0px',
+  backgroundColor: 'var(--bg-main)',
   display: 'flex',
   flexDirection: 'column',
   animation: 'fadeIn 0.3s ease-out'
@@ -3329,10 +3528,10 @@ const adminPanelStyles = {
 
 const refreshAdminBtnStyles = {
   background: 'rgba(255,255,255,0.05)',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--border-glass)',
   color: 'var(--text-secondary)',
   padding: '6px 14px',
-  borderRadius: '8px',
+  borderRadius: '0px',
   cursor: 'pointer',
   fontSize: '0.85rem',
   display: 'flex',
@@ -3358,9 +3557,9 @@ const metricsGridStyles = {
 
 const metricCardStyles = {
   padding: '24px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  backgroundColor: 'rgba(0, 240, 255, 0.02)',
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
@@ -3371,25 +3570,28 @@ const metricLabelStyles = {
   fontSize: '0.85rem',
   color: 'var(--text-secondary)',
   textTransform: 'uppercase',
+  fontFamily: "'Space Grotesk', sans-serif",
   letterSpacing: '0.5px'
 };
 
 const metricValStyles = {
   fontSize: '2rem',
-  fontWeight: '800',
+  fontWeight: '850',
+  fontFamily: "'Share Tech Mono', monospace",
   color: 'var(--text-primary)'
 };
 
 const tableSectionTitleStyles = {
   fontSize: '1.25rem',
   color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif",
   marginBottom: '8px'
 };
 
 const tableContainerStyles = {
   backgroundColor: 'var(--bg-card)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px',
   overflowX: 'auto'
 };
 
@@ -3400,8 +3602,8 @@ const tableStyles = {
 };
 
 const tableHeaderRowStyles = {
-  borderBottom: '1px solid var(--border-glass)',
-  backgroundColor: 'var(--bg-main)'
+  borderBottom: '2px solid var(--border-glass)',
+  backgroundColor: '#050508'
 };
 
 const thStyles = {
@@ -3410,6 +3612,7 @@ const thStyles = {
   color: 'var(--text-secondary)',
   fontWeight: '600',
   textTransform: 'uppercase',
+  fontFamily: "'Space Grotesk', sans-serif",
   letterSpacing: '0.5px'
 };
 
@@ -3426,11 +3629,13 @@ const tdStyles = {
 };
 
 const statusBadgeStyles = {
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  color: 'var(--secondary)',
+  backgroundColor: 'rgba(255, 0, 127, 0.15)',
+  color: 'var(--primary-hover)',
+  border: '1px solid var(--primary-hover)',
   padding: '4px 10px',
-  borderRadius: '20px',
+  borderRadius: '0px',
   fontSize: '0.8rem',
+  fontFamily: "'Share Tech Mono', monospace",
   fontWeight: '600'
 };
 
@@ -3452,9 +3657,9 @@ const messagesScrollContainerStyles = {
 
 const msgCardStyles = {
   padding: '16px',
-  backgroundColor: '#f8fafc',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '12px'
+  backgroundColor: '#08080c',
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px'
 };
 
 const msgCardHeaderStyles = {
@@ -3467,40 +3672,41 @@ const msgCardHeaderStyles = {
 const faqSectionStyles = {
   padding: '100px 0',
   backgroundColor: 'var(--bg-main)',
-  borderTop: '1px solid var(--border-glass)',
-  borderBottom: '1px solid var(--border-glass)'
+  borderTop: '2px solid var(--border-glass)',
+  borderBottom: '2px solid var(--border-glass)'
 };
 
 const tabBarContainerStyles = {
   display: 'inline-flex',
   backgroundColor: 'var(--bg-card)',
-  border: '1px solid var(--border-glass)',
+  border: '2px solid var(--border-glass)',
   padding: '4px',
-  borderRadius: '30px',
-  marginBottom: '40px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+  borderRadius: '0px',
+  marginBottom: '40px'
 };
 
 const tabButtonActiveStyles = {
   padding: '10px 24px',
-  borderRadius: '24px',
+  borderRadius: '0px',
   backgroundColor: 'var(--primary)',
-  color: '#fff',
+  color: '#000000',
   border: 'none',
   fontSize: '0.95rem',
-  fontWeight: '600',
+  fontWeight: '750',
+  fontFamily: "'Space Grotesk', sans-serif",
   cursor: 'pointer',
   transition: 'var(--transition-smooth)'
 };
 
 const tabButtonInactiveStyles = {
   padding: '10px 24px',
-  borderRadius: '24px',
+  borderRadius: '0px',
   backgroundColor: 'transparent',
   color: 'var(--text-secondary)',
   border: 'none',
   fontSize: '0.95rem',
   fontWeight: '600',
+  fontFamily: "'Space Grotesk', sans-serif",
   cursor: 'pointer',
   transition: 'var(--transition-smooth)'
 };
@@ -3515,8 +3721,8 @@ const faqContainerStyles = {
 
 const accordionItemStyles = {
   backgroundColor: 'var(--bg-card)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px',
   overflow: 'hidden',
   transition: 'var(--transition-smooth)'
 };
@@ -3538,13 +3744,14 @@ const accordionQuestionStyles = {
   fontSize: '1.05rem',
   fontWeight: '600',
   color: 'var(--text-primary)',
+  fontFamily: "'Space Grotesk', sans-serif",
   margin: 0
 };
 
 const accordionToggleStyles = {
   width: '28px',
   height: '28px',
-  borderRadius: '50%',
+  borderRadius: '0px',
   backgroundColor: 'var(--primary-glow)',
   color: 'var(--primary)',
   display: 'flex',
@@ -3560,7 +3767,7 @@ const accordionAnswerStyles = {
   color: 'var(--text-secondary)',
   fontSize: '0.95rem',
   lineHeight: '1.6',
-  borderTop: '1px solid var(--border-glass)',
+  borderTop: '2px solid var(--border-glass)',
   paddingTop: '16px'
 };
 
@@ -3570,6 +3777,7 @@ const viewMoreBtnStyles = {
   border: 'none',
   fontSize: '0.95rem',
   fontWeight: '600',
+  fontFamily: "'Share Tech Mono', monospace",
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -3594,9 +3802,9 @@ const expertQListStyles = {
 const expertFormCardStyles = {
   padding: '30px',
   backgroundColor: 'var(--bg-card)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: '24px',
-  boxShadow: '0 8px 30px rgba(0,0,0,0.02)'
+  border: '2px solid var(--border-glass)',
+  borderRadius: '0px',
+  boxShadow: '3px 3px 0px var(--border-glass)'
 };
 
 const switcherWrapperStyles = {

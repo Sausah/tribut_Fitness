@@ -6,7 +6,7 @@ import {
   Smartphone, Truck
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5004/api';
 
 // Hardcoded fallback data in case the backend database isn't running yet
 const DEFAULT_PRODUCTS = [
@@ -50,6 +50,42 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeHotspot, setActiveHotspot] = useState(null);
+  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+
+  const getThemeUrl = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        const currentPort = window.location.port;
+        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
+          return `http://localhost:5174/`;
+        }
+        return `http://localhost:${currentPort}/`;
+      }
+      return `http://localhost:${localPort}${themePath}`;
+    }
+    return themePath;
+  };
+
+  const isThemeActive = (themePath, localPort) => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocal) {
+      if (themePath === '/') {
+        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
+      }
+      return window.location.port === String(localPort);
+    }
+    if (themePath === '/') {
+      return window.location.pathname === '/' || window.location.pathname === '';
+    }
+    return window.location.pathname.startsWith(themePath);
+  };
+  
+  // Admin Authentication State
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState('');
   
   // Checkout Form State
   const [formData, setFormData] = useState({
@@ -80,6 +116,10 @@ export default function App() {
 
   useEffect(() => {
     fetchExpertQuestions();
+    const path = window.location.pathname;
+    if (path.endsWith('/admin') || path.endsWith('/admin/')) {
+      setIsAdminLoginOpen(true);
+    }
   }, []);
 
   const fetchExpertQuestions = async () => {
@@ -161,36 +201,6 @@ export default function App() {
   const [isAppOpen, setIsAppOpen] = useState(false);
   const [isAddressOpen, setIsAddressOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-
-  const getThemeUrl = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        const currentPort = window.location.port;
-        if (currentPort === '5175' || currentPort === '5176' || currentPort === '5177') {
-          return `http://localhost:5174/`;
-        }
-        return `http://localhost:${currentPort}/`;
-      }
-      return `http://localhost:${localPort}${themePath}`;
-    }
-    return themePath;
-  };
-
-  const isThemeActive = (themePath, localPort) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocal) {
-      if (themePath === '/') {
-        return window.location.port !== '5175' && window.location.port !== '5176' && window.location.port !== '5177';
-      }
-      return window.location.port === String(localPort);
-    }
-    if (themePath === '/') {
-      return window.location.pathname === '/' || window.location.pathname === '';
-    }
-    return window.location.pathname.startsWith(themePath);
-  };
   
   // Login State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -294,6 +304,34 @@ export default function App() {
       }
     } catch (e) {
       console.error('Failed to fetch admin dashboard metrics:', e);
+    }
+  };
+
+  const handleCloseAdminLogin = () => {
+    setIsAdminLoginOpen(false);
+    setAdminEmail('');
+    setAdminPassword('');
+    setAdminLoginError('');
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleCloseAdminDashboard = () => {
+    setIsAdminOpen(false);
+    const basePath = window.location.pathname.replace(/\/admin\/?$/, '') || '/';
+    window.history.pushState(null, '', basePath);
+  };
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    setAdminLoginError('');
+    if (adminEmail === 'admin@tribufit.com' && adminPassword === 'admin123') {
+      setIsAdminOpen(true);
+      setIsAdminLoginOpen(false);
+      setAdminEmail('');
+      setAdminPassword('');
+    } else {
+      setAdminLoginError('Invalid email or password');
     }
   };
 
@@ -442,7 +480,7 @@ export default function App() {
       {/* HEADER SECTION */}
       <header style={headerStyles}>
         {/* ROW 1: TOP UTILITY BAR (Symbols for Address, Get App, Order Tracking) */}
-        <div className="top-bar" style={headerTopBarStyles}>
+        <div style={headerTopBarStyles}>
           <div className="container" style={headerTopContainerStyles}>
             {/* Address Symbol & Text */}
             <div onClick={() => setIsAddressOpen(true)} style={headerUtilityItemStyles}>
@@ -475,8 +513,8 @@ export default function App() {
                 <span style={logoTextStyles}>PH</span>
               </div>
               <div style={brandDetailsStyles}>
-                <span className="brand-name" style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
-                <span className="brand-slogan" style={brandSloganStyles}>Believing Quality - Building Relationships</span>
+                <span style={brandNameStyles}>Progressive Health Care / Tribu-Fit</span>
+                <span style={brandSloganStyles}>Believing Quality - Building Relationships</span>
               </div>
             </div>
 
@@ -522,14 +560,27 @@ export default function App() {
       {/* HERO SECTION */}
       <section style={heroStyles}>
         <div style={heroOverlayStyles} />
-        <div className="container hero-container" style={heroContainerStyles}>
-          <div className="hero-text-col" style={heroTextColStyles}>
+        <div className="container" style={heroContainerStyles}>
+          <div style={heroVisualColStyles}>
+            <div style={radialGlowStyles} />
+            <img 
+              src="assets/tribu-fit-bottle.png" 
+              alt="Tribu-Fit Supplement Bottle" 
+              className="float-img"
+              style={heroImageStyles}
+              onError={(e) => {
+                e.target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&q=80&w=600';
+              }}
+            />
+          </div>
+
+          <div style={heroTextColStyles}>
             <div style={badgeStyles}>
               <Sparkles size={14} style={{ color: 'var(--primary)' }} />
               <span>THE COGENT ENERGY BOOSTER</span>
             </div>
             
-            <h1 className="hero-title" style={heroTitleStyles}>
+            <h1 style={heroTitleStyles}>
               STEP UP TO A NEW LEVEL OF <span className="gradient-text">FITNESS!</span>
             </h1>
             
@@ -561,19 +612,6 @@ export default function App() {
               </a>
             </div>
           </div>
-
-          <div className="hero-visual-col" style={heroVisualColStyles}>
-            <div style={radialGlowStyles} />
-            <img 
-              src="assets/tribu-fit-bottle.png" 
-              alt="Tribu-Fit Supplement Bottle" 
-              className="float-img"
-              style={heroImageStyles}
-              onError={(e) => {
-                e.target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&q=80&w=600';
-              }}
-            />
-          </div>
         </div>
       </section>
 
@@ -585,25 +623,7 @@ export default function App() {
             <p style={sectionSubTitleStyles}>Hover or click on the hotspots to reveal the potency of Tribu-Fit's primary components.</p>
           </div>
 
-          <div className="hotspots-layout" style={hotspotsLayoutStyles}>
-            <div style={hotspotCardsColStyles}>
-              <div style={activeHotspot === 'tribulus' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
-                <div style={featureHeaderStyles}>
-                  <div style={hotspotLabelStyles(1)}>01</div>
-                  <h3>Tribulus Terrestris</h3>
-                </div>
-                <p>Derived from high-purity puncture vine extracts, Tribulus acts as an organic catalyst for building muscle fibers, elevating free testosterone levels naturally, and sustaining physical energy levels throughout strenuous activities.</p>
-              </div>
-
-              <div style={activeHotspot === 'ashwagandha' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
-                <div style={featureHeaderStyles}>
-                  <div style={hotspotLabelStyles(2)}>02</div>
-                  <h3>Ashwagandha (Withania somnifera)</h3>
-                </div>
-                <p>A classic adaptogenic root trusted for centuries. Ashwagandha actively lowers cortisol levels, minimizes exercise-induced oxidative stress, improves restful sleep, and optimizes physical performance under fatigue.</p>
-              </div>
-            </div>
-
+          <div style={hotspotsLayoutStyles}>
             <div style={hotspotsVisualColStyles}>
               <div style={visualContainerStyles}>
                 <img 
@@ -638,6 +658,24 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <div style={hotspotCardsColStyles}>
+              <div style={activeHotspot === 'tribulus' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
+                <div style={featureHeaderStyles}>
+                  <div style={hotspotLabelStyles(1)}>01</div>
+                  <h3>Tribulus Terrestris</h3>
+                </div>
+                <p>Derived from high-purity puncture vine extracts, Tribulus acts as an organic catalyst for building muscle fibers, elevating free testosterone levels naturally, and sustaining physical energy levels throughout strenuous activities.</p>
+              </div>
+
+              <div style={activeHotspot === 'ashwagandha' ? activeFeatureCardStyles : inactiveFeatureCardStyles}>
+                <div style={featureHeaderStyles}>
+                  <div style={hotspotLabelStyles(2)}>02</div>
+                  <h3>Ashwagandha (Withania somnifera)</h3>
+                </div>
+                <p>A classic adaptogenic root trusted for centuries. Ashwagandha actively lowers cortisol levels, minimizes exercise-induced oxidative stress, improves restful sleep, and optimizes physical performance under fatigue.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -650,10 +688,10 @@ export default function App() {
             <p style={sectionSubTitleStyles}>Explore the athletic lifestyle of the Progressive Health Care fitness community.</p>
           </div>
 
-          <div style={galleryGridStyles}>
+          <div className="bento-grid">
             {/* Card 1: Gym Guy */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-gym-guy.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card bento-tall" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-gym-guy.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-gym-guy.jpg" alt="Join the Fitness Tribe" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -663,8 +701,8 @@ export default function App() {
             </div>
 
             {/* Card 2: Prize */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-prize.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-prize.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-prize.jpg" alt="Power On to the Prize" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -674,8 +712,8 @@ export default function App() {
             </div>
 
             {/* Card 3: Fitness Level */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-fitness.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-fitness.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-fitness.jpg" alt="Step up to Fitness" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -685,8 +723,8 @@ export default function App() {
             </div>
 
             {/* Card 4: Boxer */}
-            <div className="glass-panel text-card" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-boxer.jpg')}>
-              <div style={galleryImageWrapperStyles}>
+            <div className="glass-panel text-card bento-card bento-tall" style={galleryCardStyles} onClick={() => setLightboxImage('assets/promo-boxer.jpg')}>
+              <div style={bentoImageWrapperStyles}>
                 <img src="assets/promo-boxer.jpg" alt="Be a Hit with Tribu-Fit" style={galleryImageStyles} />
                 <div style={galleryOverlayHoverStyles}>
                   <ArrowUpRight size={24} style={{ color: '#fff' }} />
@@ -1022,7 +1060,7 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="ask-expert-container" style={askExpertContainerStyles}>
+            <div style={askExpertContainerStyles}>
               <div style={expertQListStyles}>
                 {expertQuestions.map((eq, idx) => (
                   <div key={eq.id || idx} style={accordionItemStyles}>
@@ -1116,7 +1154,7 @@ export default function App() {
 
       {/* CONTACT & SUPPORT FORM */}
       <section id="contact" style={contactSectionStyles}>
-        <div className="container contact-container" style={contactContainerStyles}>
+        <div className="container" style={contactContainerStyles}>
           <div style={contactInfoColStyles}>
             <h2 style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>Need Guidance?</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
@@ -1305,7 +1343,7 @@ export default function App() {
       {/* CART & CHECKOUT SLIDE-OUT DRAWER */}
       {isCartOpen && (
         <div style={drawerBackdropStyles} onClick={() => setIsCartOpen(false)}>
-          <div style={drawerPanelStyles} className="glass-panel responsive-drawer" onClick={(e) => e.stopPropagation()}>
+          <div style={drawerPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ShoppingCart style={{ color: 'var(--primary)' }} />
@@ -1428,7 +1466,7 @@ export default function App() {
                         Shipping Details
                       </h3>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="text" 
@@ -1440,7 +1478,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <div style={{ flex: 1 }}>
                           <input 
                             type="email" 
@@ -1469,7 +1507,7 @@ export default function App() {
                         style={formErrors.address ? { ...checkoutInputStyles, border: '1px solid var(--primary)', marginBottom: '0.75rem' } : { ...checkoutInputStyles, marginBottom: '0.75rem' }}
                       />
 
-                      <div className="input-group-row" style={inputGroupRowStyles}>
+                      <div style={inputGroupRowStyles}>
                         <input 
                           type="text" 
                           placeholder="City" 
@@ -1505,9 +1543,75 @@ export default function App() {
         </div>
       )}
 
+      {/* ADMIN LOGIN GATE OVERLAY */}
+      {isAdminLoginOpen && (
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminLogin}>
+          <div style={adminLoginPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div style={drawerHeaderStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Shield style={{ color: 'var(--primary)' }} />
+                <h2 style={{ fontSize: '1.6rem' }}>Admin Gateway</h2>
+              </div>
+              <button onClick={handleCloseAdminLogin} style={closeDrawerBtnStyles}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.5rem 0' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+                Please authenticate using your administrator email and password to access the operations dashboard.
+              </p>
+
+              {adminLoginError && (
+                <div style={{ color: 'var(--primary)', backgroundColor: 'rgba(230, 0, 35, 0.08)', border: '1.5px solid var(--primary)', padding: '10px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold' }}>⚠️ Error:</span> {adminLoginError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Admin Email
+                </label>
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@tribufit.com"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', fontFamily: "'Share Tech Mono', monospace", letterSpacing: '0.5px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={inputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="submit" style={adminLoginSubmitBtnStyles}>
+                  Authenticate <ArrowRight size={16} />
+                </button>
+                <button type="button" onClick={handleCloseAdminLogin} style={adminLoginCancelBtnStyles}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ADMIN DASHBOARD OVERLAY */}
       {isAdminOpen && (
-        <div style={drawerBackdropStyles} onClick={() => setIsAdminOpen(false)}>
+        <div style={drawerBackdropStyles} onClick={handleCloseAdminDashboard}>
           <div style={adminPanelStyles} className="glass-panel" onClick={(e) => e.stopPropagation()}>
             <div style={drawerHeaderStyles}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1518,7 +1622,7 @@ export default function App() {
                 <button onClick={fetchAdminData} style={refreshAdminBtnStyles}>
                   <RefreshCw size={14} /> Refresh Data
                 </button>
-                <button onClick={() => setIsAdminOpen(false)} style={closeDrawerBtnStyles}>
+                <button onClick={handleCloseAdminDashboard} style={closeDrawerBtnStyles}>
                   <X size={20} />
                 </button>
               </div>
@@ -1854,7 +1958,7 @@ const headerStyles = {
   position: 'sticky',
   top: 0,
   zIndex: 100,
-  backgroundColor: 'rgba(10, 11, 13, 0.85)',
+  backgroundColor: 'rgba(247, 251, 248, 0.95)',
   backdropFilter: 'blur(20px)',
   borderBottom: '1px solid var(--border-glass)',
   display: 'block',
@@ -1863,7 +1967,7 @@ const headerStyles = {
 
 const headerTopBarStyles = {
   borderBottom: '1px solid var(--border-glass)',
-  backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  backgroundColor: 'rgba(46, 125, 50, 0.04)',
   padding: '6px 0',
   fontSize: '0.8rem',
   color: 'var(--text-secondary)'
@@ -1886,7 +1990,7 @@ const headerUtilityItemStyles = {
 
 const utilityTextStyles = {
   fontWeight: '500',
-  color: '#e2e8f0'
+  color: 'var(--text-secondary)'
 };
 
 const headerUtilityRightStyles = {
@@ -1923,16 +2027,17 @@ const mobileUtilRowStyles = {
 
 const loginNavBtnStyles = {
   background: 'none',
-  border: '1px solid var(--border-glass)',
-  color: '#e2e8f0',
-  padding: '6px 12px',
-  borderRadius: '8px',
+  border: '1.5px solid var(--primary)',
+  color: 'var(--primary)',
+  padding: '8px 18px',
+  borderRadius: '50px',
   cursor: 'pointer',
   fontSize: '0.9rem',
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  transition: 'var(--transition-smooth)'
+  transition: 'var(--transition-smooth)',
+  fontWeight: '600'
 };
 
 const loginBtnTextStyles = {
@@ -1944,6 +2049,9 @@ const smallModalPanelStyles = {
   maxWidth: '420px',
   margin: 'auto',
   borderRadius: '24px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
+  boxShadow: '0 15px 40px rgba(46, 125, 50, 0.08)',
   display: 'flex',
   flexDirection: 'column',
   animation: 'fadeIn 0.3s ease-out',
@@ -1971,15 +2079,15 @@ const logoCircleStyles = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: '2px solid var(--secondary)',
-  boxShadow: '0 0 15px var(--primary-glow)'
+  border: 'none',
+  boxShadow: '0 4px 10px var(--primary-glow)'
 };
 
 const logoTextStyles = {
   color: '#fff',
-  fontFamily: 'Outfit',
+  fontFamily: "'Playfair Display', serif",
   fontWeight: '800',
-  fontSize: '1.1rem',
+  fontSize: '1.15rem',
   letterSpacing: '0.5px'
 };
 
@@ -1989,16 +2097,16 @@ const brandDetailsStyles = {
 };
 
 const brandNameStyles = {
-  fontFamily: 'Outfit',
+  fontFamily: "'Playfair Display', serif",
   fontWeight: '700',
   fontSize: '1.15rem',
-  color: '#ffffff',
+  color: 'var(--text-primary)',
   lineHeight: '1.2'
 };
 
 const brandSloganStyles = {
   fontSize: '0.65rem',
-  color: '#a0aec0',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px'
 };
@@ -2014,10 +2122,10 @@ const navLinkStyles = {
 
 const adminNavBtnStyles = {
   background: 'none',
-  border: '1px solid var(--border-glass)',
-  color: '#e2e8f0',
-  padding: '6px 12px',
-  borderRadius: '8px',
+  border: '1.5px solid var(--border-glass)',
+  color: 'var(--text-secondary)',
+  padding: '8px 18px',
+  borderRadius: '50px',
   cursor: 'pointer',
   fontSize: '0.9rem',
   display: 'flex',
@@ -2035,7 +2143,7 @@ const navActionWrapperStyles = {
 const cartBtnStyles = {
   background: 'none',
   border: 'none',
-  color: '#ffffff',
+  color: 'var(--text-primary)',
   cursor: 'pointer',
   position: 'relative',
   padding: '8px',
@@ -2052,7 +2160,7 @@ const cartBadgeStyles = {
   fontWeight: '700',
   minWidth: '18px',
   height: '18px',
-  borderRadius: '9px',
+  borderRadius: '50%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -2063,8 +2171,8 @@ const cartBadgeStyles = {
 /* HERO STYLES */
 const heroStyles = {
   position: 'relative',
-  padding: '100px 0 120px 0',
-  background: 'var(--gradient-dark)',
+  padding: '120px 0',
+  background: 'linear-gradient(180deg, #f7fbf8 0%, #edf4ee 100%)',
   overflow: 'hidden',
   display: 'flex',
   alignItems: 'center'
@@ -2076,13 +2184,13 @@ const heroOverlayStyles = {
   left: 0,
   width: '100%',
   height: '100%',
-  backgroundImage: 'radial-gradient(circle at 80% 30%, rgba(255, 59, 48, 0.08) 0%, rgba(0, 0, 0, 0) 60%)',
+  backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(46, 125, 50, 0.04) 0%, rgba(0, 0, 0, 0) 60%)',
   pointerEvents: 'none'
 };
 
 const heroContainerStyles = {
   display: 'grid',
-  gridTemplateColumns: '1.2fr 0.8fr',
+  gridTemplateColumns: '0.85fr 1.15fr',
   gap: '60px',
   alignItems: 'center',
   position: 'relative',
@@ -2099,29 +2207,31 @@ const badgeStyles = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '8px',
-  backgroundColor: 'rgba(255, 59, 48, 0.1)',
-  border: '1px solid rgba(255, 59, 48, 0.2)',
-  padding: '6px 12px',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
+  border: '1px solid rgba(46, 125, 50, 0.15)',
+  padding: '6px 14px',
   borderRadius: '30px',
   fontSize: '0.8rem',
-  fontWeight: '700',
+  fontWeight: '600',
   textTransform: 'uppercase',
-  letterSpacing: '1px',
-  color: 'var(--text-primary)',
+  letterSpacing: '0.5px',
+  color: 'var(--primary)',
   marginBottom: '24px'
 };
 
 const heroTitleStyles = {
-  fontSize: '3.8rem',
-  lineHeight: '1.1',
+  fontFamily: "'Playfair Display', serif",
+  fontSize: '3.6rem',
+  lineHeight: '1.15',
   marginBottom: '24px',
-  textTransform: 'uppercase',
-  fontStyle: 'italic',
-  color: 'var(--text-title, #000000)'
+  textTransform: 'none',
+  fontStyle: 'normal',
+  fontWeight: '700',
+  color: 'var(--text-title)'
 };
 
 const heroSubStyles = {
-  fontSize: '1.15rem',
+  fontSize: '1.1rem',
   color: 'var(--text-secondary)',
   marginBottom: '32px',
   maxWidth: '600px',
@@ -2147,12 +2257,12 @@ const heroFeatureCheckStyles = {
   width: '22px',
   height: '22px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '1px solid var(--secondary)',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
+  border: '1px solid var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: 'var(--secondary)'
+  color: 'var(--primary)'
 };
 
 const heroCTAContainerStyles = {
@@ -2166,7 +2276,7 @@ const heroCTAButtonStyles = {
   alignItems: 'center',
   gap: '10px',
   padding: '14px 28px',
-  borderRadius: '12px',
+  borderRadius: '50px',
   fontSize: '1.05rem',
   textDecoration: 'none'
 };
@@ -2176,7 +2286,7 @@ const heroSecondaryCTAStyles = {
   textDecoration: 'none',
   fontSize: '1rem',
   fontWeight: '600',
-  borderBottom: '1px dashed var(--text-muted)',
+  borderBottom: '1.5px solid var(--primary)',
   paddingBottom: '2px',
   transition: 'var(--transition-smooth)'
 };
@@ -2192,7 +2302,7 @@ const radialGlowStyles = {
   width: '400px',
   height: '400px',
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(255, 59, 48, 0.12) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(0,0,0,0) 100%)',
+  background: 'radial-gradient(circle, rgba(46, 125, 50, 0.06) 0%, rgba(214, 158, 46, 0.03) 50%, rgba(0,0,0,0) 100%)',
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
@@ -2200,11 +2310,9 @@ const radialGlowStyles = {
 };
 
 const heroImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '480px',
   objectFit: 'contain',
-  filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6))'
+  filter: 'drop-shadow(0 15px 30px rgba(46, 125, 50, 0.1))'
 };
 
 /* INTERACTIVE HOTSPOTS SECTION */
@@ -2221,7 +2329,8 @@ const sectionHeaderStyles = {
 };
 
 const sectionTitleStyles = {
-  fontSize: '2.5rem',
+  fontFamily: "'Playfair Display', serif",
+  fontSize: '2.6rem',
   marginBottom: '16px',
   color: 'var(--text-primary)'
 };
@@ -2247,17 +2356,17 @@ const hotspotCardsColStyles = {
 };
 
 const activeFeatureCardStyles = {
-  padding: '30px',
-  borderRadius: '20px',
-  background: 'rgba(255, 59, 48, 0.05)',
+  padding: '35px',
+  borderRadius: '24px',
+  background: '#f4f9f5',
   border: '1.5px solid var(--primary)',
-  boxShadow: '0 10px 30px rgba(255, 59, 48, 0.1)',
+  boxShadow: '0 8px 30px rgba(46, 125, 50, 0.06)',
   transition: 'var(--transition-smooth)'
 };
 
 const inactiveFeatureCardStyles = {
-  padding: '30px',
-  borderRadius: '20px',
+  padding: '35px',
+  borderRadius: '24px',
   background: 'var(--bg-card)',
   border: '1px solid var(--border-glass)',
   opacity: '0.65',
@@ -2295,11 +2404,9 @@ const visualContainerStyles = {
 };
 
 const hotspotsImageStyles = {
-  maxWidth: '100%',
-  height: 'auto',
   maxHeight: '440px',
   objectFit: 'contain',
-  filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))'
+  filter: 'drop-shadow(0 15px 30px rgba(46, 125, 50, 0.06))'
 };
 
 const hotspotTriggerStyles = (top, left) => ({
@@ -2322,7 +2429,7 @@ const hotspotPulseStyles = (isRed) => ({
   height: '100%',
   borderRadius: '50%',
   animation: isRed ? 'pulseGlow 2s infinite' : 'pulseGreenGlow 2s infinite',
-  backgroundColor: isRed ? 'rgba(255, 59, 48, 0.4)' : 'rgba(16, 185, 129, 0.4)'
+  backgroundColor: isRed ? 'rgba(46, 125, 50, 0.2)' : 'rgba(214, 158, 46, 0.2)'
 });
 
 const hotspotDotStyles = (isRed) => ({
@@ -2338,7 +2445,7 @@ const hotspotDotStyles = (isRed) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+  boxShadow: '0 4px 10px rgba(46, 125, 50, 0.1)'
 });
 
 /* GALLERY SECTION STYLES */
@@ -2361,13 +2468,20 @@ const galleryCardStyles = {
   overflow: 'hidden',
   cursor: 'pointer',
   transition: 'var(--transition-smooth)',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.05)'
+  boxShadow: '0 8px 24px rgba(46, 125, 50, 0.03)'
 };
 
 const galleryImageWrapperStyles = {
   position: 'relative',
   width: '100%',
   paddingBottom: '100%', // 1:1 Aspect Ratio
+  overflow: 'hidden'
+};
+
+const bentoImageWrapperStyles = {
+  position: 'relative',
+  width: '100%',
+  height: '100%',
   overflow: 'hidden'
 };
 
@@ -2387,7 +2501,7 @@ const galleryOverlayHoverStyles = {
   left: 0,
   width: '100%',
   height: '100%',
-  backgroundColor: 'rgba(249, 115, 22, 0.85)', // Saffron translucent overlay
+  backgroundColor: 'rgba(46, 125, 50, 0.9)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -2401,7 +2515,7 @@ const galleryOverlayTextStyles = {
   color: '#fff',
   fontWeight: 'bold',
   fontSize: '1rem',
-  fontFamily: 'Outfit'
+  fontFamily: "'Playfair Display', serif"
 };
 
 /* LIGHTBOX MODAL STYLES */
@@ -2428,8 +2542,8 @@ const lightboxCloseBtnStyles = {
 const lightboxImgStyles = {
   maxWidth: '100%',
   maxHeight: '80vh',
-  borderRadius: '16px',
-  boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+  borderRadius: '24px',
+  boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
   objectFit: 'contain'
 };
 
@@ -2443,13 +2557,16 @@ const usageSectionStyles = {
 
 const usageLayoutStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
   gap: '40px'
 };
 
 const usageColStyles = {
-  padding: '40px',
-  borderRadius: '24px',
+  padding: '45px',
+  borderRadius: '32px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
+  boxShadow: '0 8px 30px rgba(46, 125, 50, 0.02)',
   display: 'flex',
   flexDirection: 'column',
   gap: '24px'
@@ -2462,6 +2579,7 @@ const usageHeaderStyles = {
 };
 
 const usageTitleStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.8rem',
   color: 'var(--text-primary)',
   margin: 0
@@ -2489,7 +2607,7 @@ const stepNumberStyles = {
   width: '32px',
   height: '32px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(249, 115, 22, 0.1)',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
   border: '1px solid var(--primary)',
   color: 'var(--primary)',
   fontWeight: 'bold',
@@ -2504,7 +2622,7 @@ const stepNumberGreenStyles = {
   width: '32px',
   height: '32px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(22, 163, 74, 0.1)',
+  backgroundColor: 'rgba(214, 158, 46, 0.08)',
   border: '1px solid var(--secondary)',
   color: 'var(--secondary)',
   fontWeight: 'bold',
@@ -2517,9 +2635,9 @@ const stepNumberGreenStyles = {
 
 const safetyNoticeStyles = {
   padding: '16px',
-  borderRadius: '12px',
-  backgroundColor: 'rgba(249, 115, 22, 0.05)',
-  borderLeft: '4px solid var(--primary)',
+  borderRadius: '16px',
+  backgroundColor: '#fffdf9',
+  borderLeft: '4px solid var(--secondary)',
   fontSize: '0.85rem',
   color: 'var(--text-secondary)',
   lineHeight: '1.5'
@@ -2540,6 +2658,9 @@ const benefitsGridStyles = {
 
 const benefitCardStyles = {
   padding: '40px 30px',
+  borderRadius: '24px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
@@ -2548,24 +2669,24 @@ const benefitCardStyles = {
 };
 
 const benefitIconStyles = (color) => {
-  let bg = 'rgba(255, 59, 48, 0.1)';
-  let border = 'rgba(255, 59, 48, 0.2)';
+  let bg = 'rgba(46, 125, 50, 0.08)';
+  let border = 'rgba(46, 125, 50, 0.15)';
   let c = 'var(--primary)';
   
   if (color === 'green') {
-    bg = 'rgba(16, 185, 129, 0.1)';
-    border = 'rgba(16, 185, 129, 0.2)';
-    c = 'var(--secondary)';
+    bg = 'rgba(46, 125, 50, 0.12)';
+    border = 'rgba(46, 125, 50, 0.2)';
+    c = 'var(--primary-hover)';
   } else if (color === 'gold') {
-    bg = 'rgba(245, 158, 11, 0.1)';
-    border = 'rgba(245, 158, 11, 0.2)';
-    c = 'var(--gold)';
+    bg = 'rgba(214, 158, 46, 0.08)';
+    border = 'rgba(214, 158, 46, 0.15)';
+    c = 'var(--secondary)';
   }
-
+  
   return {
     width: '54px',
     height: '54px',
-    borderRadius: '16px',
+    borderRadius: '50%',
     backgroundColor: bg,
     border: `1px solid ${border}`,
     color: c,
@@ -2577,6 +2698,7 @@ const benefitIconStyles = (color) => {
 };
 
 const benefitTitleStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.3rem',
   marginBottom: '12px',
   color: 'var(--text-primary)'
@@ -2591,35 +2713,37 @@ const benefitTextStyles = {
 /* PRICING & TIERED PACKS */
 const purchaseSectionStyles = {
   padding: '120px 0',
-  backgroundColor: '#0a0b0d',
-  borderTop: '1px solid var(--border-glass)'
+  backgroundColor: '#f4f8f5',
+  borderTop: '1px solid var(--border-glass)',
+  borderBottom: '1px solid var(--border-glass)'
 };
 
 const packsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
 
 const packCardStyles = {
   padding: '50px 35px',
-  borderRadius: '24px',
+  borderRadius: '32px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   position: 'relative',
   textAlign: 'center',
   transition: 'var(--transition-smooth)',
-  background: 'linear-gradient(135deg, #111e38 0%, #0b1329 100%)',
-  border: '1px solid rgba(255, 255, 255, 0.15)'
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
+  boxShadow: '0 8px 30px rgba(46, 125, 50, 0.04)'
 };
 
 const savingsBadgeStyles = {
   position: 'absolute',
   top: '20px',
   right: '20px',
-  backgroundColor: 'var(--primary)',
+  backgroundColor: 'var(--secondary)',
   color: '#fff',
   fontSize: '0.75rem',
   fontWeight: '700',
@@ -2630,9 +2754,10 @@ const savingsBadgeStyles = {
 };
 
 const packTitleStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.5rem',
   marginBottom: '8px',
-  color: '#fff'
+  color: 'var(--text-primary)'
 };
 
 const packTaglineStyles = {
@@ -2653,7 +2778,7 @@ const packPriceWrapperStyles = {
 const packCurrencyStyles = {
   fontSize: '1.5rem',
   fontWeight: '600',
-  color: '#fff',
+  color: 'var(--text-primary)',
   marginTop: '6px',
   marginRight: '2px'
 };
@@ -2661,12 +2786,12 @@ const packCurrencyStyles = {
 const packAmountStyles = {
   fontSize: '3.5rem',
   fontWeight: '800',
-  color: '#fff',
+  color: 'var(--text-primary)',
   lineHeight: '1'
 };
 
 const packDescStyles = {
-  color: '#e2e8f0',
+  color: 'var(--text-secondary)',
   fontSize: '0.95rem',
   lineHeight: '1.6',
   marginBottom: '24px',
@@ -2678,18 +2803,18 @@ const packStockStyles = {
   alignItems: 'center',
   gap: '6px',
   fontSize: '0.8rem',
-  color: '#a0aec0',
+  color: 'var(--text-muted)',
   marginBottom: '24px'
 };
 
 const packBuyBtnStyles = {
   width: '100%',
   padding: '14px',
-  borderRadius: '12px',
-  border: '1px solid var(--border-glass)',
-  backgroundColor: 'var(--bg-glass)',
-  color: '#000000',
-  fontWeight: '600',
+  borderRadius: '50px',
+  border: '1px solid var(--primary)',
+  backgroundColor: 'transparent',
+  color: 'var(--primary)',
+  fontWeight: '650',
   fontSize: '1rem',
   cursor: 'pointer',
   display: 'flex',
@@ -2702,8 +2827,9 @@ const packBuyBtnStyles = {
 const packBuyBtnActiveStyles = {
   ...packBuyBtnStyles,
   backgroundColor: 'var(--primary)',
+  color: '#fff',
   border: 'none',
-  boxShadow: '0 4px 15px var(--primary-glow)'
+  boxShadow: '0 6px 18px rgba(46, 125, 50, 0.2)'
 };
 
 /* REVIEWS / TESTIMONIALS SECTION STYLES */
@@ -2716,14 +2842,17 @@ const reviewsSectionStyles = {
 
 const reviewsGridStyles = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '30px',
   marginTop: '20px'
 };
 
 const reviewCardStyles = {
   padding: '40px 30px',
-  borderRadius: '24px',
+  borderRadius: '32px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
+  boxShadow: '0 8px 30px rgba(46, 125, 50, 0.03)',
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'space-between',
@@ -2743,11 +2872,11 @@ const verifiedBadgeStyles = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '4px',
-  backgroundColor: 'rgba(22, 163, 74, 0.1)',
-  border: '1px solid var(--secondary)',
-  color: 'var(--secondary)',
+  backgroundColor: 'rgba(46, 125, 50, 0.06)',
+  border: '1px solid var(--primary)',
+  color: 'var(--primary)',
   padding: '4px 10px',
-  borderRadius: '20px',
+  borderRadius: '30px',
   fontSize: '0.75rem',
   fontWeight: '700',
   textTransform: 'uppercase',
@@ -2786,6 +2915,7 @@ const authorAvatarStyles = (bg, border) => ({
 });
 
 const authorNameStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.05rem',
   fontWeight: '700',
   color: 'var(--text-primary)',
@@ -2831,7 +2961,7 @@ const contactListItemStyles = {
 const contactIconWrapperStyles = {
   width: '46px',
   height: '46px',
-  borderRadius: '12px',
+  borderRadius: '50%',
   backgroundColor: 'var(--bg-glass)',
   border: '1px solid var(--border-glass)',
   color: 'var(--primary)',
@@ -2842,7 +2972,10 @@ const contactIconWrapperStyles = {
 
 const contactFormColStyles = {
   padding: '40px',
-  borderRadius: '24px'
+  borderRadius: '32px',
+  backgroundColor: 'var(--bg-card)',
+  border: '1px solid var(--border-glass)',
+  boxShadow: '0 8px 35px rgba(46, 125, 50, 0.04)'
 };
 
 const formElementStyles = {
@@ -2864,10 +2997,10 @@ const labelStyles = {
 };
 
 const inputStyles = {
-  padding: '12px 16px',
-  borderRadius: '10px',
-  backgroundColor: '#f1f5f9',
-  border: '1px solid var(--border-glass)',
+  padding: '12px 20px',
+  borderRadius: '50px',
+  backgroundColor: '#ffffff',
+  border: '1.5px solid var(--border-glass)',
   color: 'var(--text-primary)',
   fontSize: '0.95rem',
   outline: 'none',
@@ -2876,7 +3009,7 @@ const inputStyles = {
 
 const contactSubmitBtnStyles = {
   padding: '14px',
-  borderRadius: '12px',
+  borderRadius: '50px',
   fontSize: '1rem',
   marginTop: '10px'
 };
@@ -2893,9 +3026,9 @@ const checkCircleWrapperStyles = {
   width: '70px',
   height: '70px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '2.5px solid var(--secondary)',
-  color: 'var(--secondary)',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
+  border: '2px solid var(--primary)',
+  color: 'var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -2908,14 +3041,14 @@ const resetContactBtnStyles = {
   border: '1px solid var(--border-glass)',
   color: 'var(--text-secondary)',
   padding: '8px 16px',
-  borderRadius: '8px',
+  borderRadius: '30px',
   cursor: 'pointer',
   transition: 'var(--transition-smooth)'
 };
 
 /* FOOTER STYLES */
 const footerStyles = {
-  backgroundColor: '#07080a',
+  backgroundColor: '#15301b',
   borderTop: '1px solid var(--border-glass)',
   padding: '80px 0 0 0',
   marginTop: 'auto'
@@ -2936,7 +3069,7 @@ const footerBrandColStyles = {
 };
 
 const footerAddressStyles = {
-  color: '#a0aec0',
+  color: '#a3c2ab',
   fontSize: '0.9rem',
   lineHeight: '1.6',
   margin: 0
@@ -2953,18 +3086,18 @@ const footerContactItemStyles = {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  color: '#e2e8f0',
+  color: '#e2f0e6',
   fontSize: '0.9rem'
 };
 
 const footerColHeadingStyles = {
-  fontFamily: 'Outfit',
+  fontFamily: "'Playfair Display', serif",
   fontWeight: '700',
   fontSize: '1rem',
   color: '#ffffff',
-  letterSpacing: '1px',
+  letterSpacing: '0.5px',
   marginBottom: '20px',
-  textTransform: 'uppercase'
+  textTransform: 'none'
 };
 
 const footerLinksColStyles = {
@@ -2975,7 +3108,7 @@ const footerLinksColStyles = {
 };
 
 const footerLinkStyles = {
-  color: '#a0aec0',
+  color: '#a3c2ab',
   textDecoration: 'none',
   fontSize: '0.9rem',
   transition: 'var(--transition-smooth)',
@@ -2996,7 +3129,7 @@ const footerSocialIconsStyles = {
 };
 
 const footerSocialLinkStyles = {
-  color: '#e2e8f0',
+  color: '#e2f0e6',
   backgroundColor: 'rgba(255,255,255,0.05)',
   border: '1px solid rgba(255,255,255,0.08)',
   width: '40px',
@@ -3027,7 +3160,7 @@ const footerPlatformColStyles = {
 
 const footerSectionLabelStyles = {
   fontSize: '0.85rem',
-  color: '#a0aec0',
+  color: '#a3c2ab',
   fontWeight: '600',
   textTransform: 'uppercase',
   letterSpacing: '0.5px'
@@ -3047,7 +3180,7 @@ const footerPlatformItemStyles = {
   textTransform: 'lowercase',
   backgroundColor: 'rgba(255,255,255,0.05)',
   padding: '6px 12px',
-  borderRadius: '6px',
+  borderRadius: '30px',
   border: '1px solid rgba(255,255,255,0.08)'
 };
 
@@ -3061,7 +3194,7 @@ const footerPaymentListStyles = {
 const footerPaymentItemStyles = {
   fontSize: '0.8rem',
   fontWeight: '600',
-  color: '#e2e8f0',
+  color: '#e2f0e6',
   backgroundColor: 'rgba(255,255,255,0.05)',
   padding: '4px 10px',
   borderRadius: '4px',
@@ -3077,7 +3210,7 @@ const footerPolicyBarStyles = {
 };
 
 const footerPolicyLinkStyles = {
-  color: '#a0aec0',
+  color: '#a3c2ab',
   textDecoration: 'none',
   fontSize: '0.85rem',
   transition: 'var(--transition-smooth)',
@@ -3085,7 +3218,7 @@ const footerPolicyLinkStyles = {
 };
 
 const footerCopyrightBarStyles = {
-  backgroundColor: '#052e16',
+  backgroundColor: '#112615',
   padding: '16px 0',
   marginTop: '20px'
 };
@@ -3093,7 +3226,7 @@ const footerCopyrightBarStyles = {
 const footerCopyrightContainerStyles = {
   textAlign: 'center',
   fontSize: '0.8rem',
-  color: '#a7f3d0'
+  color: '#a3c2ab'
 };
 
 /* DRAWER / GLASS OVERLAY */
@@ -3103,18 +3236,19 @@ const drawerBackdropStyles = {
   left: 0,
   width: '100vw',
   height: '100vh',
-  backgroundColor: 'rgba(0,0,0,0.7)',
+  backgroundColor: 'rgba(21, 48, 27, 0.4)',
   zIndex: 1000,
   display: 'flex',
   justifyContent: 'flex-end',
-  backdropFilter: 'blur(5px)'
+  backdropFilter: 'blur(10px)'
 };
 
 const drawerPanelStyles = {
   width: '500px',
   height: '100%',
   borderLeft: '1px solid var(--border-glass)',
-  borderRadius: '0px',
+  borderRadius: '32px 0 0 32px',
+  backgroundColor: '#ffffff',
   display: 'flex',
   flexDirection: 'column',
   animation: 'slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -3161,7 +3295,7 @@ const explorePacksBtnStyles = {
   color: '#fff',
   textDecoration: 'none',
   padding: '10px 20px',
-  borderRadius: '8px',
+  borderRadius: '30px',
   fontWeight: '600',
   fontSize: '0.9rem'
 };
@@ -3177,9 +3311,9 @@ const cartItemRowStyles = {
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '16px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
+  backgroundColor: 'rgba(46, 125, 50, 0.02)',
   border: '1px solid var(--border-glass)',
-  borderRadius: '12px'
+  borderRadius: '20px'
 };
 
 const cartItemInfoStyles = {
@@ -3193,9 +3327,9 @@ const cartQtyControllerStyles = {
   display: 'flex',
   alignItems: 'center',
   gap: '10px',
-  backgroundColor: 'rgba(255,255,255,0.05)',
+  backgroundColor: 'rgba(46, 125, 50, 0.04)',
   padding: '4px 8px',
-  borderRadius: '8px',
+  borderRadius: '30px',
   margin: '0 16px'
 };
 
@@ -3223,8 +3357,8 @@ const costSummaryStyles = {
   flexDirection: 'column',
   gap: '10px',
   padding: '20px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
-  borderRadius: '16px',
+  backgroundColor: '#fcfdfe',
+  borderRadius: '24px',
   border: '1px solid var(--border-glass)'
 };
 
@@ -3248,7 +3382,7 @@ const inputGroupRowStyles = {
 
 const checkoutInputStyles = {
   ...inputStyles,
-  padding: '10px 14px',
+  padding: '10px 20px',
   fontSize: '0.9rem',
   width: '100%'
 };
@@ -3256,7 +3390,7 @@ const checkoutInputStyles = {
 const placeOrderBtnStyles = {
   width: '100%',
   padding: '14px',
-  borderRadius: '12px',
+  borderRadius: '50px',
   fontSize: '1rem',
   marginTop: '16px'
 };
@@ -3274,21 +3408,21 @@ const checkoutSuccessCircleStyles = {
   width: '80px',
   height: '80px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  border: '3px solid var(--secondary)',
-  color: 'var(--secondary)',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
+  border: '2.5px solid var(--primary)',
+  color: 'var(--primary)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   marginBottom: '24px',
-  boxShadow: '0 0 20px var(--secondary-glow)'
+  boxShadow: '0 0 20px rgba(46,125,50,0.1)'
 };
 
 const receiptStyles = {
   width: '100%',
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#f7fbf8',
   border: '1px dashed var(--border-glass)',
-  borderRadius: '12px',
+  borderRadius: '20px',
   padding: '20px',
   display: 'flex',
   flexDirection: 'column',
@@ -3308,9 +3442,51 @@ const returnToShopBtnStyles = {
   border: 'none',
   color: '#fff',
   padding: '12px 24px',
-  borderRadius: '10px',
+  borderRadius: '30px',
   fontWeight: '600',
   cursor: 'pointer',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginPanelStyles = {
+  width: '90%',
+  maxWidth: '450px',
+  border: '1px solid var(--border-glass)',
+  margin: 'auto',
+  borderRadius: '24px',
+  backgroundColor: '#ffffff',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '2.5rem',
+  animation: 'fadeIn 0.3s ease-out'
+};
+
+const adminLoginSubmitBtnStyles = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: 'var(--primary)',
+  color: '#ffffff',
+  border: '2px solid var(--primary)',
+  fontWeight: '800',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  borderRadius: '30px',
+  transition: 'var(--transition-smooth)'
+};
+
+const adminLoginCancelBtnStyles = {
+  padding: '12px 24px',
+  backgroundColor: 'transparent',
+  color: 'var(--text-secondary)',
+  border: '2px solid var(--border-glass)',
+  fontWeight: '700',
+  fontFamily: "'Space Grotesk', sans-serif",
+  cursor: 'pointer',
+  borderRadius: '30px',
   transition: 'var(--transition-smooth)'
 };
 
@@ -3321,18 +3497,19 @@ const adminPanelStyles = {
   height: '90%',
   border: '1px solid var(--border-glass)',
   margin: 'auto',
-  borderRadius: '24px',
+  borderRadius: '32px',
+  backgroundColor: '#ffffff',
   display: 'flex',
   flexDirection: 'column',
   animation: 'fadeIn 0.3s ease-out'
 };
 
 const refreshAdminBtnStyles = {
-  background: 'rgba(255,255,255,0.05)',
+  background: 'rgba(46,125,50,0.05)',
   border: '1px solid var(--border-glass)',
   color: 'var(--text-secondary)',
   padding: '6px 14px',
-  borderRadius: '8px',
+  borderRadius: '20px',
   cursor: 'pointer',
   fontSize: '0.85rem',
   display: 'flex',
@@ -3358,9 +3535,9 @@ const metricsGridStyles = {
 
 const metricCardStyles = {
   padding: '24px',
-  backgroundColor: 'rgba(255,255,255,0.02)',
+  backgroundColor: 'rgba(46,125,50,0.03)',
   border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  borderRadius: '20px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
@@ -3381,6 +3558,7 @@ const metricValStyles = {
 };
 
 const tableSectionTitleStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.25rem',
   color: 'var(--text-primary)',
   marginBottom: '8px'
@@ -3389,7 +3567,7 @@ const tableSectionTitleStyles = {
 const tableContainerStyles = {
   backgroundColor: 'var(--bg-card)',
   border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  borderRadius: '24px',
   overflowX: 'auto'
 };
 
@@ -3401,7 +3579,7 @@ const tableStyles = {
 
 const tableHeaderRowStyles = {
   borderBottom: '1px solid var(--border-glass)',
-  backgroundColor: 'var(--bg-main)'
+  backgroundColor: 'rgba(46,125,50,0.03)'
 };
 
 const thStyles = {
@@ -3426,10 +3604,10 @@ const tdStyles = {
 };
 
 const statusBadgeStyles = {
-  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  color: 'var(--secondary)',
-  padding: '4px 10px',
-  borderRadius: '20px',
+  backgroundColor: 'rgba(46, 125, 50, 0.08)',
+  color: 'var(--primary)',
+  padding: '4px 12px',
+  borderRadius: '30px',
   fontSize: '0.8rem',
   fontWeight: '600'
 };
@@ -3452,9 +3630,9 @@ const messagesScrollContainerStyles = {
 
 const msgCardStyles = {
   padding: '16px',
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#fcfdfe',
   border: '1px solid var(--border-glass)',
-  borderRadius: '12px'
+  borderRadius: '16px'
 };
 
 const msgCardHeaderStyles = {
@@ -3478,7 +3656,7 @@ const tabBarContainerStyles = {
   padding: '4px',
   borderRadius: '30px',
   marginBottom: '40px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+  boxShadow: '0 4px 12px rgba(46,125,50,0.03)'
 };
 
 const tabButtonActiveStyles = {
@@ -3516,7 +3694,7 @@ const faqContainerStyles = {
 const accordionItemStyles = {
   backgroundColor: 'var(--bg-card)',
   border: '1px solid var(--border-glass)',
-  borderRadius: '16px',
+  borderRadius: '20px',
   overflow: 'hidden',
   transition: 'var(--transition-smooth)'
 };
@@ -3535,8 +3713,9 @@ const accordionHeaderStyles = {
 };
 
 const accordionQuestionStyles = {
+  fontFamily: "'Playfair Display', serif",
   fontSize: '1.05rem',
-  fontWeight: '600',
+  fontWeight: '650',
   color: 'var(--text-primary)',
   margin: 0
 };
@@ -3596,7 +3775,7 @@ const expertFormCardStyles = {
   backgroundColor: 'var(--bg-card)',
   border: '1px solid var(--border-glass)',
   borderRadius: '24px',
-  boxShadow: '0 8px 30px rgba(0,0,0,0.02)'
+  boxShadow: '0 8px 30px rgba(46,125,50,0.02)'
 };
 
 const switcherWrapperStyles = {
