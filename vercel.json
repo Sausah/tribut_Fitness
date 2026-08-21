@@ -1,7 +1,5 @@
 {
-  "buildCommand": "npm run build --prefix \"Product theme 1/frontend\"",
   "outputDirectory": "Product theme 1/frontend/dist",
-  "installCommand": "npm install --prefix \"Product theme 1/frontend\"",
   "cleanUrls": true,
   "rewrites": [
     { "source": "/v2/:path*", "destination": "/v2/index.html" },

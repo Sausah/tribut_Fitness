@@ -1,0 +1,7 @@
+{
+  "name": "root-product-tribut-fitness",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix \"Product theme 1/frontend\""
+  }
+}
